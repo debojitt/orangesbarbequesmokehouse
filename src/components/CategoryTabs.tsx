@@ -18,56 +18,58 @@ const CategoryTabs = ({ categories, activeCategory, onSelect }: CategoryTabsProp
 
   return (
     <>
-      <div className="px-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-foreground font-semibold text-sm tracking-wide uppercase">Categories</h2>
-          {categories.length > 4 && (
-            <button
-              onClick={() => setShowAll(true)}
-              className="text-primary text-xs font-medium hover:underline"
-            >
-              Swipe List →
-            </button>
-          )}
-        </div>
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          {categories.map((cat) => (
+      <div className="px-4 pb-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => onSelect(null)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              !activeCategory ? 'gold-gradient text-primary-foreground' : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            All
+          </button>
+          {categories.slice(0, 6).map((cat) => (
             <button
               key={cat.id}
               onClick={() => onSelect(activeCategory === cat.id ? null : cat.id)}
-              className={`flex-shrink-0 flex flex-col items-center justify-center w-20 h-20 transition-all ${
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
                 activeCategory === cat.id
-                  ? 'gold-gradient text-primary-foreground shadow-lg'
-                  : 'glass-panel text-muted-foreground hover:text-foreground hover:border-primary/30'
+                  ? 'gold-gradient text-primary-foreground'
+                  : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span className="text-2xl mb-1">{cat.icon || '🍽️'}</span>
-              <span className="text-[10px] font-medium uppercase tracking-wide truncate w-full text-center px-1">
-                {cat.name}
-              </span>
+              {cat.icon} {cat.name}
             </button>
           ))}
+          {categories.length > 6 && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-primary/40 text-primary"
+            >
+              More →
+            </button>
+          )}
         </div>
       </div>
 
       <Dialog open={showAll} onOpenChange={setShowAll}>
-        <DialogContent className="glass-panel-strong border-border max-w-md">
+        <DialogContent className="glass-panel-strong border-border rounded-2xl max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-primary">All Categories</DialogTitle>
+            <DialogTitle className="font-display gold-text">All Categories</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-3 gap-3 mt-4">
+          <div className="grid grid-cols-3 gap-2 mt-4">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => { onSelect(cat.id); setShowAll(false); }}
-                className={`flex flex-col items-center justify-center p-4 transition-all ${
+                className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all ${
                   activeCategory === cat.id
                     ? 'gold-gradient text-primary-foreground'
-                    : 'glass-panel text-foreground hover:border-primary/30'
+                    : 'bg-secondary/40 text-foreground hover:border-primary/30 border border-transparent'
                 }`}
               >
-                <span className="text-2xl mb-1">{cat.icon || '🍽️'}</span>
-                <span className="text-xs font-medium">{cat.name}</span>
+                <span className="text-xl mb-1">{cat.icon || '🍽️'}</span>
+                <span className="text-[10px] font-medium text-center leading-tight">{cat.name}</span>
               </button>
             ))}
           </div>
