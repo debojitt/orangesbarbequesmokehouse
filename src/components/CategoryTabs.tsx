@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Category {
@@ -16,45 +15,38 @@ interface CategoryTabsProps {
 
 const CategoryTabs = ({ categories, activeCategory, onSelect }: CategoryTabsProps) => {
   const [showAll, setShowAll] = useState(false);
-  const visibleCategories = categories.slice(0, 4);
-  const hasMore = categories.length > 4;
 
   return (
     <>
-      <div className="sticky top-[60px] z-40 glass-panel-strong">
-        <div className="flex items-center gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
-          <button
-            onClick={() => onSelect(null)}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
-              activeCategory === null
-                ? 'gold-gradient text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground border border-border'
-            }`}
-          >
-            All
-          </button>
-          {visibleCategories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => onSelect(cat.id)}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
-                activeCategory === cat.id
-                  ? 'gold-gradient text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground border border-border'
-              }`}
-            >
-              {cat.icon && <span className="mr-1">{cat.icon}</span>}
-              {cat.name}
-            </button>
-          ))}
-          {hasMore && (
+      <div className="px-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-foreground font-semibold text-sm tracking-wide uppercase">Categories</h2>
+          {categories.length > 4 && (
             <button
               onClick={() => setShowAll(true)}
-              className="px-4 py-2 text-sm font-medium whitespace-nowrap text-primary border border-primary hover:gold-gradient hover:text-primary-foreground transition-all flex items-center gap-1"
+              className="text-primary text-xs font-medium hover:underline"
             >
-              More <ChevronRight className="w-4 h-4" />
+              Swipe List →
             </button>
           )}
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => onSelect(activeCategory === cat.id ? null : cat.id)}
+              className={`flex-shrink-0 flex flex-col items-center justify-center w-20 h-20 transition-all ${
+                activeCategory === cat.id
+                  ? 'gold-gradient text-primary-foreground shadow-lg'
+                  : 'glass-panel text-muted-foreground hover:text-foreground hover:border-primary/30'
+              }`}
+            >
+              <span className="text-2xl mb-1">{cat.icon || '🍽️'}</span>
+              <span className="text-[10px] font-medium uppercase tracking-wide truncate w-full text-center px-1">
+                {cat.name}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -63,19 +55,19 @@ const CategoryTabs = ({ categories, activeCategory, onSelect }: CategoryTabsProp
           <DialogHeader>
             <DialogTitle className="font-display text-primary">All Categories</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-2 mt-4">
+          <div className="grid grid-cols-3 gap-3 mt-4">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => { onSelect(cat.id); setShowAll(false); }}
-                className={`p-3 text-sm font-medium text-left transition-all ${
+                className={`flex flex-col items-center justify-center p-4 transition-all ${
                   activeCategory === cat.id
                     ? 'gold-gradient text-primary-foreground'
-                    : 'glass-panel text-foreground hover:border-primary'
+                    : 'glass-panel text-foreground hover:border-primary/30'
                 }`}
               >
-                {cat.icon && <span className="mr-2">{cat.icon}</span>}
-                {cat.name}
+                <span className="text-2xl mb-1">{cat.icon || '🍽️'}</span>
+                <span className="text-xs font-medium">{cat.name}</span>
               </button>
             ))}
           </div>

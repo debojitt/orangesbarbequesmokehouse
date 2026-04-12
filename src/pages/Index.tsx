@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Search } from 'lucide-react';
 import MenuHeader from '@/components/MenuHeader';
 import AICravingBox from '@/components/AICravingBox';
 import CategoryTabs from '@/components/CategoryTabs';
@@ -10,6 +11,7 @@ import TodayOffers from '@/components/TodayOffers';
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'nonveg'>('all');
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -30,7 +32,6 @@ const Index = () => {
         const itemVariants = (variants || []).filter((v) => v.menu_item_id === item.id);
         let discountedPrice: number | undefined;
 
-        // Check for applicable discounts
         const now = new Date();
         for (const d of discounts || []) {
           if (d.start_time && new Date(d.start_time) > now) continue;
@@ -67,6 +68,8 @@ const Index = () => {
 
   const filteredItems = shuffledItems.filter((item) => {
     if (activeCategory && item.category_id !== activeCategory) return false;
+    if (vegFilter === 'veg' && !item.is_veg) return false;
+    if (vegFilter === 'nonveg' && item.is_veg) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return item.name.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q);
@@ -99,10 +102,60 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <MenuHeader onSearch={setSearchQuery} />
+      <MenuHeader />
+
+      {/* Search bar */}
+      <div className="px-4 mb-4">
+        <div className="flex items-center gap-3 glass-panel px-4 py-2.5">
+          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <input
+            type="text"
+            placeholder="Search dishes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent text-foreground text-sm placeholder:text-muted-foreground focus:outline-none w-full"
+          />
+        </div>
+      </div>
+
+      {/* Filter chips */}
+      <div className="px-4 mb-4 flex items-center gap-2">
+        <span className="text-muted-foreground text-xs mr-1">₹</span>
+        <button
+          onClick={() => setVegFilter('all')}
+          className={`px-3 py-1 text-xs font-medium transition-all rounded-full ${
+            vegFilter === 'all'
+              ? 'bg-foreground text-background'
+              : 'glass-panel text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setVegFilter('veg')}
+          className={`px-3 py-1 text-xs font-medium transition-all rounded-full flex items-center gap-1 ${
+            vegFilter === 'veg'
+              ? 'bg-green-600 text-white'
+              : 'glass-panel text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-green-500" /> Veg
+        </button>
+        <button
+          onClick={() => setVegFilter('nonveg')}
+          className={`px-3 py-1 text-xs font-medium transition-all rounded-full flex items-center gap-1 ${
+            vegFilter === 'nonveg'
+              ? 'bg-red-600 text-white'
+              : 'glass-panel text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-red-500" /> Non
+        </button>
+      </div>
+
+      <CategoryTabs categories={categories} activeCategory={activeCategory} onSelect={setActiveCategory} />
       <AICravingBox />
       <TodayOffers />
-      <CategoryTabs categories={categories} activeCategory={activeCategory} onSelect={setActiveCategory} />
 
       <div className="px-4 py-4 space-y-6 pb-24">
         {groupedItems.map((group, idx) => (
@@ -113,7 +166,7 @@ const Index = () => {
                 {group.category.name}
               </h2>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-3">
               {group.items.map((item) => (
                 <MenuItemCard key={item.id} item={item} />
               ))}

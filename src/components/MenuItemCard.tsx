@@ -1,4 +1,4 @@
-import { Camera, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCart } from '@/contexts/CartContext';
@@ -41,12 +41,22 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
     enabled: showGallery,
   });
 
+  // Get first gallery image for thumbnail
+  const { data: thumbnailImages } = useQuery({
+    queryKey: ['gallery-thumb', item.id],
+    queryFn: async () => {
+      const { data } = await supabase.from('gallery_images').select('image_url').eq('menu_item_id', item.id).limit(1);
+      return data || [];
+    },
+  });
+
+  const thumbnailUrl = thumbnailImages?.[0]?.image_url;
+
   const handleAdd = () => {
     if (item.variants.length > 0) {
       setShowVariants(true);
     } else {
       addItem({ menuItemId: item.id, name: item.name, price: item.discountedPrice ?? item.base_price, isVeg: item.is_veg });
-      // Track selection
       supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
     }
   };
@@ -67,55 +77,64 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
   return (
     <>
       <div className={`glass-panel p-4 transition-all hover:border-primary/30 ${!item.is_available ? 'opacity-50' : ''}`}>
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <div className={item.is_veg ? 'veg-badge' : 'nonveg-badge'} />
-              {item.is_bestseller && (
-                <span className="px-2 py-0.5 text-[10px] font-bold gold-gradient text-primary-foreground tracking-wider">BESTSELLER</span>
-              )}
-              {item.is_chef_special && (
-                <span className="px-2 py-0.5 text-[10px] font-bold border border-primary text-primary tracking-wider">CHEF'S SPECIAL</span>
-              )}
-              {item.is_daily_special && (
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-primary/20 text-primary tracking-wider">TODAY'S SPECIAL</span>
-              )}
-            </div>
-            <h3 className="text-foreground font-medium text-sm">{item.name}</h3>
-            {item.description && (
-              <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{item.description}</p>
-            )}
-            {item.serving_info && (
-              <p className="text-muted-foreground text-[10px] mt-1">{item.serving_info}</p>
-            )}
-          </div>
+        <div className="flex items-center gap-4">
+          {/* Circular thumbnail */}
           <button
             onClick={() => setShowGallery(true)}
-            className="p-2 text-muted-foreground hover:text-primary transition-colors ml-2"
+            className="flex-shrink-0 w-16 h-16 rounded-full overflow-hidden bg-secondary border-2 border-border hover:border-primary/50 transition-colors"
           >
-            <Camera className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-2">
-            {item.discountedPrice ? (
-              <>
-                <span className="text-muted-foreground text-sm line-through">₹{item.base_price}</span>
-                <span className="text-primary font-semibold">₹{item.discountedPrice}</span>
-              </>
+            {thumbnailUrl ? (
+              <img src={thumbnailUrl} alt={item.name} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-foreground font-semibold">₹{item.base_price}</span>
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-2xl">
+                {item.is_veg ? '🥬' : '🍖'}
+              </div>
             )}
+          </button>
+
+          {/* Item details */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className={item.is_veg ? 'veg-badge' : 'nonveg-badge'} />
+              {item.is_bestseller && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold gold-gradient text-primary-foreground tracking-wider">BEST</span>
+              )}
+              {item.is_chef_special && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold border border-primary text-primary tracking-wider">CHEF</span>
+              )}
+              {item.is_daily_special && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold bg-primary/20 text-primary tracking-wider">TODAY</span>
+              )}
+            </div>
+            <h3 className="text-foreground font-medium text-sm truncate">{item.name}</h3>
+            {item.description && (
+              <p className="text-muted-foreground text-xs mt-0.5 line-clamp-1">{item.description}</p>
+            )}
+            {item.serving_info && (
+              <p className="text-muted-foreground text-[10px] mt-0.5">{item.serving_info}</p>
+            )}
+            <div className="flex items-center gap-2 mt-1">
+              {item.discountedPrice ? (
+                <>
+                  <span className="text-muted-foreground text-xs line-through">₹{item.base_price}</span>
+                  <span className="text-primary font-semibold text-sm">₹{item.discountedPrice}</span>
+                </>
+              ) : (
+                <span className="text-foreground font-semibold text-sm">₹{item.base_price}</span>
+              )}
+            </div>
           </div>
+
+          {/* Add button */}
           {item.is_available ? (
             <button
               onClick={handleAdd}
-              className="flex items-center gap-1 px-4 py-1.5 text-xs font-semibold border border-primary text-primary hover:gold-gradient hover:text-primary-foreground transition-all"
+              className="flex-shrink-0 w-10 h-10 rounded-full gold-gradient text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
             >
-              <Plus className="w-3 h-3" /> ADD
+              <Plus className="w-5 h-5" />
             </button>
           ) : (
-            <span className="text-xs text-muted-foreground italic">Unavailable</span>
+            <span className="text-[10px] text-muted-foreground italic">N/A</span>
           )}
         </div>
       </div>
