@@ -1,9 +1,7 @@
-import { Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Minus } from 'lucide-react';
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
 
 interface Variant {
   id: string;
@@ -28,164 +26,136 @@ interface MenuItem {
 }
 
 const MenuItemCard = ({ item }: { item: MenuItem }) => {
-  const [showVariants, setShowVariants] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
-  const { addItem } = useCart();
+  const [expanded, setExpanded] = useState(false);
+  const { addItem, items, updateQuantity } = useCart();
+  const hasVariants = item.variants.length > 0;
 
-  const { data: gallery } = useQuery({
-    queryKey: ['gallery', item.id],
-    queryFn: async () => {
-      const { data } = await supabase.from('gallery_images').select('*').eq('menu_item_id', item.id);
-      return data || [];
-    },
-    enabled: showGallery,
-  });
+  const cartItem = items.find(i => i.menuItemId === item.id && !i.variantId);
+  const cartVariantItems = items.filter(i => i.menuItemId === item.id && i.variantId);
 
-  // Get first gallery image for thumbnail
-  const { data: thumbnailImages } = useQuery({
-    queryKey: ['gallery-thumb', item.id],
-    queryFn: async () => {
-      const { data } = await supabase.from('gallery_images').select('image_url').eq('menu_item_id', item.id).limit(1);
-      return data || [];
-    },
-  });
-
-  const thumbnailUrl = thumbnailImages?.[0]?.image_url;
-
-  const handleAdd = () => {
-    if (item.variants.length > 0) {
-      setShowVariants(true);
+  const handleAddBase = () => {
+    if (hasVariants) {
+      setExpanded(!expanded);
     } else {
       addItem({ menuItemId: item.id, name: item.name, price: item.discountedPrice ?? item.base_price, isVeg: item.is_veg });
       supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
     }
   };
 
-  const handleVariantSelect = (variant: Variant) => {
-    addItem({
-      menuItemId: item.id,
-      name: item.name,
-      variantId: variant.id,
-      variantName: variant.name,
-      price: variant.price,
-      isVeg: item.is_veg,
-    });
+  const handleAddVariant = (v: Variant) => {
+    addItem({ menuItemId: item.id, name: item.name, variantId: v.id, variantName: v.name, price: v.price, isVeg: item.is_veg });
     supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
-    setShowVariants(false);
   };
 
   return (
-    <>
-      <div className={`glass-panel p-4 transition-all hover:border-primary/30 ${!item.is_available ? 'opacity-50' : ''}`}>
-        <div className="flex items-center gap-4">
-          {/* Circular thumbnail */}
-          <button
-            onClick={() => setShowGallery(true)}
-            className="flex-shrink-0 w-16 h-16 rounded-full overflow-hidden bg-secondary border-2 border-border hover:border-primary/50 transition-colors"
-          >
-            {thumbnailUrl ? (
-              <img src={thumbnailUrl} alt={item.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-2xl">
-                {item.is_veg ? '🥬' : '🍖'}
-              </div>
-            )}
-          </button>
+    <div className={`glass-panel rounded-2xl overflow-hidden transition-all ${!item.is_available ? 'opacity-40' : ''}`}>
+      {/* Main row */}
+      <div className="p-4 flex items-center gap-3">
+        {/* Veg/Non-veg indicator */}
+        <div className={`flex-shrink-0 ${item.is_veg ? 'veg-badge' : 'nonveg-badge'}`} />
 
-          {/* Item details */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className={item.is_veg ? 'veg-badge' : 'nonveg-badge'} />
-              {item.is_bestseller && (
-                <span className="px-1.5 py-0.5 text-[9px] font-bold gold-gradient text-primary-foreground tracking-wider">BEST</span>
-              )}
-              {item.is_chef_special && (
-                <span className="px-1.5 py-0.5 text-[9px] font-bold border border-primary text-primary tracking-wider">CHEF</span>
-              )}
-              {item.is_daily_special && (
-                <span className="px-1.5 py-0.5 text-[9px] font-bold bg-primary/20 text-primary tracking-wider">TODAY</span>
-              )}
-            </div>
-            <h3 className="text-foreground font-medium text-sm truncate">{item.name}</h3>
-            {item.description && (
-              <p className="text-muted-foreground text-xs mt-0.5 line-clamp-1">{item.description}</p>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h3 className="text-foreground font-medium text-sm">{item.name}</h3>
+            {item.is_bestseller && (
+              <span className="px-1.5 py-0.5 text-[8px] font-bold gold-gradient text-primary-foreground rounded-md">BEST</span>
             )}
-            {item.serving_info && (
-              <p className="text-muted-foreground text-[10px] mt-0.5">{item.serving_info}</p>
+            {item.is_chef_special && (
+              <span className="px-1.5 py-0.5 text-[8px] font-bold border border-primary text-primary rounded-md">CHEF</span>
             )}
-            <div className="flex items-center gap-2 mt-1">
-              {item.discountedPrice ? (
-                <>
-                  <span className="text-muted-foreground text-xs line-through">₹{item.base_price}</span>
-                  <span className="text-primary font-semibold text-sm">₹{item.discountedPrice}</span>
-                </>
-              ) : (
-                <span className="text-foreground font-semibold text-sm">₹{item.base_price}</span>
-              )}
-            </div>
+            {item.is_daily_special && (
+              <span className="px-1.5 py-0.5 text-[8px] font-bold bg-primary/20 text-primary rounded-md">TODAY</span>
+            )}
           </div>
-
-          {/* Add button */}
-          {item.is_available ? (
-            <button
-              onClick={handleAdd}
-              className="flex-shrink-0 w-10 h-10 rounded-full gold-gradient text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          ) : (
-            <span className="text-[10px] text-muted-foreground italic">N/A</span>
-          )}
+          {item.description && <p className="text-muted-foreground text-xs mt-0.5 line-clamp-1">{item.description}</p>}
+          <div className="flex items-center gap-2 mt-1">
+            {item.discountedPrice ? (
+              <>
+                <span className="text-muted-foreground text-xs line-through">₹{item.base_price}</span>
+                <span className="text-primary font-semibold text-sm">₹{item.discountedPrice}</span>
+              </>
+            ) : (
+              <span className="text-primary font-semibold text-sm">
+                {hasVariants ? `₹${Math.min(...item.variants.map(v => v.price))}+` : `₹${item.base_price}`}
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Action button */}
+        {item.is_available ? (
+          hasVariants ? (
+            <button
+              onClick={handleAddBase}
+              className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-xl border border-primary/40 text-primary text-xs font-medium hover:bg-primary/10 transition-colors"
+            >
+              {expanded ? 'Hide' : 'Options'}
+              {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          ) : cartItem ? (
+            <div className="flex items-center gap-1 border border-primary/40 rounded-xl overflow-hidden">
+              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity - 1)} className="p-1.5 text-primary hover:bg-primary/10">
+                <Minus className="w-3 h-3" />
+              </button>
+              <span className="px-2 text-xs font-semibold text-foreground">{cartItem.quantity}</span>
+              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity + 1)} className="p-1.5 text-primary hover:bg-primary/10">
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleAddBase}
+              className="flex-shrink-0 w-9 h-9 rounded-xl gold-gradient text-primary-foreground flex items-center justify-center shadow-md hover:opacity-90 transition-opacity"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )
+        ) : (
+          <span className="text-[10px] text-muted-foreground italic">N/A</span>
+        )}
       </div>
 
-      {/* Variant Selection */}
-      <Dialog open={showVariants} onOpenChange={setShowVariants}>
-        <DialogContent className="glass-panel-strong border-border max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="font-display text-primary">{item.name}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground mb-4">Select a variant:</p>
-          <div className="space-y-2">
-            {item.variants.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => handleVariantSelect(v)}
-                className="w-full flex items-center justify-between p-3 glass-panel hover:border-primary transition-all"
-              >
+      {/* Variants dropdown */}
+      {expanded && hasVariants && (
+        <div className="border-t border-border/50 bg-secondary/20 px-4 py-2 space-y-1">
+          {item.variants.map((v) => {
+            const cv = cartVariantItems.find(ci => ci.variantId === v.id);
+            return (
+              <div key={v.id} className="flex items-center justify-between py-1.5">
                 <div>
-                  <span className="text-foreground font-medium text-sm">{v.name}</span>
-                  {v.serves_count && (
-                    <span className="text-muted-foreground text-xs ml-2">Serves {v.serves_count}</span>
+                  <span className="text-foreground text-sm">{v.name}</span>
+                  {v.serves_count && v.serves_count > 1 && (
+                    <span className="text-muted-foreground text-xs ml-1.5">Serves {v.serves_count}</span>
                   )}
                 </div>
-                <span className="text-primary font-semibold">₹{v.price}</span>
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Gallery */}
-      <Dialog open={showGallery} onOpenChange={setShowGallery}>
-        <DialogContent className="glass-panel-strong border-border max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-display text-primary">{item.name} Gallery</DialogTitle>
-          </DialogHeader>
-          {gallery && gallery.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              {gallery.map((img) => (
-                <div key={img.id} className="aspect-square bg-secondary overflow-hidden">
-                  <img src={img.image_url} alt={img.caption || item.name} className="w-full h-full object-cover" />
+                <div className="flex items-center gap-2">
+                  <span className="text-primary font-semibold text-sm">₹{v.price}</span>
+                  {cv ? (
+                    <div className="flex items-center gap-0.5 border border-primary/40 rounded-lg overflow-hidden">
+                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity - 1)} className="p-1 text-primary hover:bg-primary/10">
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="px-1.5 text-xs font-semibold text-foreground">{cv.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity + 1)} className="p-1 text-primary hover:bg-primary/10">
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleAddVariant(v)}
+                      className="px-2 py-1 text-xs font-medium gold-gradient text-primary-foreground rounded-lg"
+                    >
+                      ADD
+                    </button>
+                  )}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">No photos available yet</p>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 };
 
