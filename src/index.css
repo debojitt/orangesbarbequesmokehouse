@@ -106,6 +106,59 @@
     content: '';
     @apply w-2 h-2 rounded-full bg-red-500;
   }
+  
+  /* Stunning Animation Classes */
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+  
+  .card-hover:hover {
+    @apply transform -translate-y-2 shadow-2xl;
+  }
+  
+  .shimmer-effect {
+    background: linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.1) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite;
+  }
+  
+  .badge-pulse {
+    animation: badgePulse 2s ease-in-out infinite;
+  }
+  
+  .button-scale {
+    @apply transition-transform duration-200;
+  }
+  
+  .button-scale:active {
+    @apply scale-95;
+  }
+  
+  .button-scale:hover {
+    @apply scale-105;
+  }
+  
+  .glow-on-hover {
+    @apply transition-all duration-300;
+  }
+  
+  .glow-on-hover:hover {
+    @apply shadow-lg shadow-[hsl(36_35%_61%_/_0.5)];
+  }
+  
+  .smooth-expand {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .price-highlight {
+    @apply relative;
+  }
+  
+  .price-highlight::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0 rounded;
+    animation: priceGlow 2s ease-in-out infinite;
+  }
 }
 
 @keyframes pulse-gold {
@@ -116,4 +169,38 @@
 @keyframes blink-highlight {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+@keyframes priceGlow {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+button, a, [role="button"] {
+  @apply transition-all duration-300;
 }
