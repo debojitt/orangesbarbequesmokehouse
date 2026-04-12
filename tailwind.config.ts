@@ -85,11 +85,41 @@ export default {
           "0%, 100%": { boxShadow: "0 0 10px hsl(36 35% 61% / 0.4)" },
           "50%": { boxShadow: "0 0 30px hsl(36 35% 61% / 0.8)" },
         },
+        "card-hover": {
+          from: { transform: "translateY(0px)", boxShadow: "0 4px 20px hsl(0 0% 0% / 0.2)" },
+          to: { transform: "translateY(-8px)", boxShadow: "0 12px 40px hsl(36 35% 61% / 0.15)" },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "-1000px 0" },
+          "100%": { backgroundPosition: "1000px 0" },
+        },
+        "fade-in-scale": {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "badge-pulse": {
+          "0%, 100%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(1.1)", opacity: "0.8" },
+        },
+        "price-glow": {
+          "0%, 100%": { opacity: "0" },
+          "50%": { opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-gold": "pulse-gold 2s ease-in-out infinite",
+        "card-hover": "card-hover 0.3s ease-out forwards",
+        "shimmer": "shimmer 3s infinite",
+        "fade-in-scale": "fade-in-scale 0.3s ease-out",
+        "slide-up": "slide-up 0.3s ease-out",
+        "badge-pulse": "badge-pulse 2s ease-in-out infinite",
+        "price-glow": "price-glow 2s ease-in-out infinite",
       },
     },
   },
