@@ -15,38 +15,44 @@ interface CategoryTabsProps {
 
 const CategoryTabs = ({ categories, activeCategory, onSelect }: CategoryTabsProps) => {
   const [showAll, setShowAll] = useState(false);
+  const visibleCats = categories.slice(0, 5);
 
   return (
     <>
-      <div className="px-4 pb-2">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="px-4 py-3">
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
           <button
             onClick={() => onSelect(null)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-              !activeCategory ? 'gold-gradient text-primary-foreground' : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex flex-col items-center gap-1.5 min-w-[56px] transition-all ${!activeCategory ? 'opacity-100' : 'opacity-50'}`}
           >
-            All
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg ${!activeCategory ? 'maroon-gradient text-primary-foreground' : 'bg-secondary/60'}`}>
+              ✕
+            </div>
+            <span className="text-[10px] font-medium text-foreground">ALL</span>
           </button>
-          {categories.slice(0, 6).map((cat) => (
+          {visibleCats.map((cat) => (
             <button
               key={cat.id}
               onClick={() => onSelect(activeCategory === cat.id ? null : cat.id)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-                activeCategory === cat.id
-                  ? 'gold-gradient text-primary-foreground'
-                  : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
-              }`}
+              className={`flex flex-col items-center gap-1.5 min-w-[56px] transition-all ${activeCategory === cat.id ? 'opacity-100' : 'opacity-60'}`}
             >
-              {cat.icon} {cat.name}
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg ${
+                activeCategory === cat.id ? 'maroon-gradient text-primary-foreground' : 'bg-secondary/60'
+              }`}>
+                {cat.icon || '🍽️'}
+              </div>
+              <span className="text-[10px] font-medium text-foreground truncate max-w-[56px]">{cat.name}</span>
             </button>
           ))}
-          {categories.length > 6 && (
+          {categories.length > 5 && (
             <button
               onClick={() => setShowAll(true)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-primary/40 text-primary"
+              className="flex flex-col items-center gap-1.5 min-w-[56px]"
             >
-              More →
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg bg-secondary/60 border border-primary/30">
+                ≡
+              </div>
+              <span className="text-[10px] font-medium text-primary">MORE</span>
             </button>
           )}
         </div>
@@ -57,14 +63,14 @@ const CategoryTabs = ({ categories, activeCategory, onSelect }: CategoryTabsProp
           <DialogHeader>
             <DialogTitle className="font-display gold-text">All Categories</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className="grid grid-cols-3 gap-3 mt-4">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => { onSelect(cat.id); setShowAll(false); }}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all ${
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all ${
                   activeCategory === cat.id
-                    ? 'gold-gradient text-primary-foreground'
+                    ? 'maroon-gradient text-primary-foreground'
                     : 'bg-secondary/40 text-foreground hover:border-primary/30 border border-transparent'
                 }`}
               >
