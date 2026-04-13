@@ -27,9 +27,11 @@ interface MenuItem {
 
 const MenuItemCard = ({ item }: { item: MenuItem }) => {
   const [expanded, setExpanded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const { addItem, items, updateQuantity } = useCart();
   const hasVariants = item.variants.length > 0;
+
+  // Items with variants should show neutral badge (both veg & non-veg options possible)
+  const badgeClass = hasVariants ? 'neutral-badge' : item.is_veg ? 'veg-badge' : 'nonveg-badge';
 
   const cartItem = items.find(i => i.menuItemId === item.id && !i.variantId);
   const cartVariantItems = items.filter(i => i.menuItemId === item.id && i.variantId);
@@ -49,38 +51,33 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
   };
 
   return (
-    <div 
-      className={`glass-panel rounded-2xl overflow-hidden transition-all duration-300 ${
-        !item.is_available ? 'opacity-40' : ''
-      } ${isHovered ? 'shadow-2xl shadow-primary/20 -translate-y-1' : 'shadow-lg'}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="p-4 flex items-center gap-3">
-        <div className={`flex-shrink-0 transition-all duration-300 ${isHovered ? 'scale-110' : 'scale-100'} ${item.is_veg ? 'veg-badge' : 'nonveg-badge'}`} />
+    <div className={`ios-card ${!item.is_available ? 'opacity-40' : ''}`}>
+      <div className="p-4 flex items-start gap-3">
+        <div className={`flex-shrink-0 mt-1 ${badgeClass}`} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <h3 className="text-foreground font-medium text-sm">{item.name}</h3>
             {item.is_bestseller && (
-              <span className="px-1.5 py-0.5 text-[8px] font-bold gold-gradient text-primary-foreground rounded-md animate-badge-pulse">BEST</span>
+              <span className="px-1.5 py-0.5 text-[8px] font-bold maroon-gradient text-primary-foreground rounded-full">BEST</span>
             )}
             {item.is_chef_special && (
-              <span className="px-1.5 py-0.5 text-[8px] font-bold border border-primary text-primary rounded-md transition-all duration-300 hover:scale-105">CHEF</span>
+              <span className="px-1.5 py-0.5 text-[8px] font-bold border border-primary/50 text-primary rounded-full">CHEF</span>
             )}
             {item.is_daily_special && (
-              <span className="px-1.5 py-0.5 text-[8px] font-bold bg-primary/20 text-primary rounded-md transition-all duration-300 hover:scale-105">TODAY</span>
+              <span className="px-1.5 py-0.5 text-[8px] font-bold bg-primary/20 text-primary rounded-full">TODAY</span>
             )}
           </div>
-          {item.description && <p className="text-muted-foreground text-xs mt-0.5 line-clamp-1">{item.description}</p>}
-          <div className="flex items-center gap-2 mt-1">
+          {item.description && <p className="text-muted-foreground text-xs mt-0.5 line-clamp-2">{item.description}</p>}
+          {item.serving_info && <p className="text-muted-foreground/60 text-[10px] mt-0.5">{item.serving_info}</p>}
+          <div className="flex items-center gap-2 mt-1.5">
             {item.discountedPrice ? (
               <>
                 <span className="text-muted-foreground text-xs line-through">₹{item.base_price}</span>
-                <span className={`text-primary font-semibold text-sm transition-all duration-300 ${isHovered ? 'animate-price-glow' : ''}`}>₹{item.discountedPrice}</span>
+                <span className="text-primary font-semibold text-sm">₹{item.discountedPrice}</span>
               </>
             ) : (
-              <span className={`text-primary font-semibold text-sm transition-all duration-300 ${isHovered ? 'animate-price-glow' : ''}`}>
+              <span className="text-primary font-semibold text-sm">
                 {hasVariants ? `₹${Math.min(...item.variants.map(v => v.price))}+` : `₹${item.base_price}`}
               </span>
             )}
@@ -91,21 +88,25 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
           hasVariants ? (
             <button
               onClick={handleAddBase}
-              className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-xl border border-primary/40 text-primary text-xs font-medium hover:bg-primary/10 transition-all duration-300 hover:shadow-lg hover:shadow-primary/20 active:scale-95"
+              className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary/40 text-primary text-xs font-medium hover:bg-primary/10 active:scale-95"
             >
               {expanded ? 'Hide' : 'Options'}
               {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           ) : cartItem ? (
-            <div className="flex items-center gap-1 border border-primary/40 rounded-xl overflow-hidden">
-              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity - 1)} className="p-1.5 text-primary hover:bg-primary/10 active:scale-95 transition-all duration-200"><Minus className="w-3 h-3" /></button>
-              <span className="px-2 text-xs font-semibold text-foreground">{cartItem.quantity}</span>
-              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity + 1)} className="p-1.5 text-primary hover:bg-primary/10 active:scale-95 transition-all duration-200"><Plus className="w-3 h-3" /></button>
+            <div className="flex items-center gap-0.5 border border-primary/40 rounded-full overflow-hidden">
+              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity - 1)} className="p-1.5 text-primary hover:bg-primary/10 active:scale-95">
+                <Minus className="w-3 h-3" />
+              </button>
+              <span className="px-2 text-xs font-semibold text-foreground min-w-[20px] text-center">{cartItem.quantity}</span>
+              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity + 1)} className="p-1.5 text-primary hover:bg-primary/10 active:scale-95">
+                <Plus className="w-3 h-3" />
+              </button>
             </div>
           ) : (
             <button
               onClick={handleAddBase}
-              className="flex-shrink-0 w-9 h-9 rounded-xl gold-gradient text-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg hover:shadow-primary/30 transition-all duration-300 hover:scale-110 active:scale-95"
+              className="flex-shrink-0 w-9 h-9 rounded-full maroon-gradient text-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg active:scale-95"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -116,29 +117,33 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
       </div>
 
       {expanded && hasVariants && (
-        <div className="border-t border-border/50 bg-secondary/20 px-4 py-2 space-y-1 animate-slide-up">
+        <div className="border-t border-border/30 bg-secondary/10 px-4 py-2 space-y-1" style={{ animation: 'slideIn 0.2s ease-out' }}>
           {item.variants.map((v) => {
             const cv = cartVariantItems.find(ci => ci.variantId === v.id);
             return (
-              <div key={v.id} className="flex items-center justify-between py-1.5 transition-all duration-300 hover:bg-secondary/10 px-2 rounded">
+              <div key={v.id} className="flex items-center justify-between py-2 px-2 rounded-xl hover:bg-secondary/20">
                 <div>
                   <span className="text-foreground text-sm">{v.name}</span>
                   {v.serves_count && v.serves_count > 1 && (
-                    <span className="text-muted-foreground text-xs ml-1.5">Serves {v.serves_count}</span>
+                    <span className="text-muted-foreground text-xs ml-1.5">• Serves {v.serves_count}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-primary font-semibold text-sm">₹{v.price}</span>
                   {cv ? (
-                    <div className="flex items-center gap-0.5 border border-primary/40 rounded-lg overflow-hidden transition-all duration-300">
-                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity - 1)} className="p-1 text-primary hover:bg-primary/10 active:scale-95 transition-all duration-200"><Minus className="w-3 h-3" /></button>
+                    <div className="flex items-center gap-0.5 border border-primary/40 rounded-full overflow-hidden">
+                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity - 1)} className="p-1 text-primary hover:bg-primary/10 active:scale-95">
+                        <Minus className="w-3 h-3" />
+                      </button>
                       <span className="px-1.5 text-xs font-semibold text-foreground">{cv.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity + 1)} className="p-1 text-primary hover:bg-primary/10 active:scale-95 transition-all duration-200"><Plus className="w-3 h-3" /></button>
+                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity + 1)} className="p-1 text-primary hover:bg-primary/10 active:scale-95">
+                        <Plus className="w-3 h-3" />
+                      </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => handleAddVariant(v)}
-                      className="px-2 py-1 text-xs font-medium gold-gradient text-primary-foreground rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-primary/30 active:scale-95"
+                      className="px-3 py-1 text-xs font-medium maroon-gradient text-primary-foreground rounded-full active:scale-95"
                     >
                       ADD
                     </button>

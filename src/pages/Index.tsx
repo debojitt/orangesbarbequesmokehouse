@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Sparkles, ShoppingCart } from 'lucide-react';
+import { Search, Sparkles, ShoppingCart, Menu, X, Star, Heart, MessageSquare, Lock } from 'lucide-react';
 import CategoryTabs from '@/components/CategoryTabs';
 import MenuItemCard from '@/components/MenuItemCard';
 import TodayOffers from '@/components/TodayOffers';
@@ -14,6 +14,7 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'nonveg'>('all');
   const [showAI, setShowAI] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
   const { itemCount, approximateTotal } = useCart();
 
   const { data: categories = [] } = useQuery({
@@ -98,25 +99,75 @@ const Index = () => {
     return groups;
   }, [filteredItems, categories, activeCategory]);
 
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Sticky Header with Logo + Search */}
-      <header className="sticky top-0 z-50 glass-panel-strong border-b border-border/50">
-        <div className="px-4 pt-3 pb-2">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="font-display text-2xl gold-text tracking-wide">INARA</h1>
-            <div className="flex items-center gap-2">
-              <Link to="/review" className="text-xs text-primary border border-primary/40 px-2 py-1 rounded-full hover:bg-primary/10 transition-colors">
-                Review Us ⭐
+      {/* Sidebar Overlay */}
+      {showSidebar && (
+        <div className="fixed inset-0 z-[60] flex">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowSidebar(false)} />
+          <div className="relative w-72 h-full glass-panel-strong border-r border-border/50 p-6 flex flex-col animate-slide-up">
+            <button onClick={() => setShowSidebar(false)} className="absolute top-4 right-4 text-muted-foreground">
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="font-display text-2xl gold-text mb-8 mt-2">INARA</h2>
+            <nav className="flex flex-col gap-1 flex-1">
+              <Link to="/" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-secondary/60 text-sm font-medium">
+                <Search className="w-4 h-4" /> Menu
+              </Link>
+              <Link to="/review" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-secondary/60 text-sm font-medium">
+                <Star className="w-4 h-4" /> Review Us
+              </Link>
+              <Link to="/loyalty" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-secondary/60 text-sm font-medium">
+                <Heart className="w-4 h-4" /> Loyalty Card
+              </Link>
+              <Link to="/cart" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-secondary/60 text-sm font-medium">
+                <ShoppingCart className="w-4 h-4" /> Cart {itemCount > 0 && <span className="ml-auto bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">{itemCount}</span>}
+              </Link>
+            </nav>
+            <div className="border-t border-border/50 pt-4 mt-4">
+              <Link to="/staff/login" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-secondary/60 text-xs">
+                <Lock className="w-3 h-3" /> Staff Portal
               </Link>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 glass-panel-strong">
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => setShowSidebar(true)} className="text-foreground p-1">
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="font-display text-xl tracking-widest gold-text">INARA</h1>
+            <Link to="/cart" className="relative p-1">
+              <ShoppingCart className="w-5 h-5 text-primary" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">{itemCount}</span>
+              )}
+            </Link>
+          </div>
+
+          {/* Greeting */}
+          <div className="mb-3">
+            <p className="text-muted-foreground text-xs uppercase tracking-widest">{getGreeting()}</p>
+            <h2 className="font-display text-2xl text-foreground leading-tight">The Artisan<br/>Table</h2>
+          </div>
+
           {/* Search */}
-          <div className="flex items-center gap-2 bg-secondary/60 rounded-xl px-3 py-2">
+          <div className="flex items-center gap-2 bg-secondary/80 rounded-2xl px-4 py-2.5">
             <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <input
               type="text"
-              placeholder="Search dishes..."
+              placeholder="Explore the menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent text-foreground text-sm placeholder:text-muted-foreground focus:outline-none w-full"
@@ -124,35 +175,26 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Category bar */}
+        {/* Category Icons Row */}
         <CategoryTabs categories={categories} activeCategory={activeCategory} onSelect={setActiveCategory} />
 
         {/* Filter chips */}
-        <div className="px-4 pb-2 flex items-center gap-2">
-          <button
-            onClick={() => setVegFilter('all')}
-            className={`px-3 py-1 text-xs font-medium transition-all rounded-full ${
-              vegFilter === 'all' ? 'gold-gradient text-primary-foreground' : 'bg-secondary/60 text-muted-foreground'
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setVegFilter('veg')}
-            className={`px-3 py-1 text-xs font-medium transition-all rounded-full flex items-center gap-1 ${
-              vegFilter === 'veg' ? 'bg-green-600 text-white' : 'bg-secondary/60 text-muted-foreground'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-green-500" /> Veg
-          </button>
-          <button
-            onClick={() => setVegFilter('nonveg')}
-            className={`px-3 py-1 text-xs font-medium transition-all rounded-full flex items-center gap-1 ${
-              vegFilter === 'nonveg' ? 'bg-red-600 text-white' : 'bg-secondary/60 text-muted-foreground'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-red-500" /> Non-Veg
-          </button>
+        <div className="px-4 pb-3 flex items-center gap-2">
+          {[
+            { key: 'all' as const, label: 'All', color: 'maroon-gradient text-primary-foreground' },
+            { key: 'veg' as const, label: 'Veg', color: 'bg-green-600/90 text-white' },
+            { key: 'nonveg' as const, label: 'Non-Veg', color: 'bg-red-600/90 text-white' },
+          ].map(({ key, label, color }) => (
+            <button
+              key={key}
+              onClick={() => setVegFilter(key)}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-all ${
+                vegFilter === key ? color : 'bg-secondary/60 text-muted-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -163,10 +205,12 @@ const Index = () => {
         {groupedItems.map((group, idx) => (
           <div key={idx}>
             {group.category && (
-              <h2 className="font-display text-lg gold-text mb-3 flex items-center gap-2">
-                {group.category.icon && <span>{group.category.icon}</span>}
-                {group.category.name}
-              </h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-display text-lg gold-text flex items-center gap-2">
+                  {group.category.icon && <span>{group.category.icon}</span>}
+                  {group.category.name}
+                </h2>
+              </div>
             )}
             <div className="space-y-3">
               {group.items.map((item) => (
@@ -176,14 +220,14 @@ const Index = () => {
           </div>
         ))}
         {filteredItems.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No items found</p>
+          <div className="text-center py-16">
+            <p className="text-muted-foreground text-sm">No items found</p>
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <footer className="glass-panel py-6 text-center">
+      <footer className="glass-panel py-6 text-center mb-20">
         <p className="text-xs text-muted-foreground">
           Powered by <span className="text-primary font-medium">JorhatStays</span> •{' '}
           <a href="https://wa.me/918474038160" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
@@ -192,17 +236,41 @@ const Index = () => {
         </p>
       </footer>
 
-      {/* Floating AI Bubble */}
-      <button
-        onClick={() => setShowAI(!showAI)}
-        className="fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full gold-gradient text-primary-foreground flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
-        style={{ animation: 'pulse-gold 2s infinite' }}
-      >
-        <Sparkles className="w-6 h-6" />
-      </button>
+      {/* Bottom Navigation Bar (iOS style) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 glass-panel-strong border-t border-border/30 safe-area-bottom">
+        <div className="flex items-center justify-around py-2">
+          <Link to="/" className="flex flex-col items-center gap-0.5 py-1 px-3">
+            <Search className="w-5 h-5 text-primary" />
+            <span className="text-[10px] text-primary font-medium">Menu</span>
+          </Link>
+          <Link to="/review" className="flex flex-col items-center gap-0.5 py-1 px-3">
+            <MessageSquare className="w-5 h-5 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">Review</span>
+          </Link>
+          <button
+            onClick={() => setShowAI(!showAI)}
+            className="w-14 h-14 -mt-6 rounded-full maroon-gradient text-primary-foreground flex items-center justify-center shadow-lg"
+            style={{ animation: 'pulse-gold 2s infinite' }}
+          >
+            <Sparkles className="w-6 h-6" />
+          </button>
+          <Link to="/loyalty" className="flex flex-col items-center gap-0.5 py-1 px-3">
+            <Heart className="w-5 h-5 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">Loyalty</span>
+          </Link>
+          <Link to="/cart" className="flex flex-col items-center gap-0.5 py-1 px-3 relative">
+            <ShoppingCart className="w-5 h-5 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">Cart</span>
+            {itemCount > 0 && (
+              <span className="absolute -top-0.5 right-1 w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">{itemCount}</span>
+            )}
+          </Link>
+        </div>
+      </nav>
 
+      {/* AI Craving Box */}
       {showAI && (
-        <div className="fixed bottom-36 right-4 left-4 z-50 max-w-sm ml-auto">
+        <div className="fixed bottom-24 right-4 left-4 z-50 max-w-sm ml-auto">
           <AICravingBox onClose={() => setShowAI(false)} />
         </div>
       )}
@@ -211,7 +279,7 @@ const Index = () => {
       {itemCount > 0 && (
         <Link
           to="/cart"
-          className="fixed bottom-4 left-4 right-4 z-50 gold-gradient rounded-2xl px-5 py-3 flex items-center justify-between shadow-xl"
+          className="fixed bottom-20 left-4 right-4 z-40 maroon-gradient rounded-2xl px-5 py-3 flex items-center justify-between shadow-xl"
         >
           <div className="flex items-center gap-3">
             <ShoppingCart className="w-5 h-5 text-primary-foreground" />
@@ -219,7 +287,7 @@ const Index = () => {
               {itemCount} item{itemCount > 1 ? 's' : ''}
             </span>
           </div>
-          <span className="text-primary-foreground font-bold text-base">₹{approximateTotal}</span>
+          <span className="text-primary-foreground font-bold text-base">≈ ₹{approximateTotal}</span>
         </Link>
       )}
     </div>
