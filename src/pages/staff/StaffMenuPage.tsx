@@ -174,6 +174,42 @@ const StaffMenu = () => {
     setGeneratingDescriptions(false);
   };
 
+  const handleGenerateAllImages = async () => {
+    setGeneratingImages(true);
+    setImageProgress('Checking items...');
+    try {
+      const { data: listData } = await supabase.functions.invoke('ai-craving', {
+        body: { action: 'list-items-without-images' },
+      });
+      const missingItems = listData?.items || [];
+      if (missingItems.length === 0) {
+        toast.info('All items already have illustrations');
+        setGeneratingImages(false);
+        setImageProgress('');
+        return;
+      }
+      let generated = 0;
+      for (const item of missingItems) {
+        setImageProgress(`Generating ${generated + 1}/${missingItems.length}: ${item.name}`);
+        try {
+          await supabase.functions.invoke('ai-craving', {
+            body: { action: 'generate-illustration', item_id: item.id, item_name: item.name, is_veg: item.is_veg },
+          });
+          generated++;
+        } catch (err) {
+          console.error(`Failed to generate image for ${item.name}:`, err);
+        }
+        // Small delay to avoid rate limiting
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      toast.success(`Generated illustrations for ${generated} items`);
+    } catch (e) {
+      toast.error('Failed to generate illustrations');
+    }
+    setGeneratingImages(false);
+    setImageProgress('');
+  };
+
   const resetItemForm = () => {
     setItemForm({ name: '', description: '', serving_info: '', base_price: '', category_id: '', is_veg: true, is_bestseller: false, is_chef_special: false, is_daily_special: false, variants: [] });
     setEditingItem(null);
