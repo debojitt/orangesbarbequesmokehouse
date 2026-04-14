@@ -12,6 +12,8 @@ const StaffMenu = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [imageProgress, setImageProgress] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('');
 
   const [itemForm, setItemForm] = useState({
