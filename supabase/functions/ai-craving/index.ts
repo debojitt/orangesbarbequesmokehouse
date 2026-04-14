@@ -58,6 +58,106 @@ Respond with JSON: { "descriptions": [{"id": "item_id", "description": "your des
       });
     }
 
+    // Handle food illustration generation
+    if (body.action === 'generate-illustration') {
+      const { item_id, item_name, is_veg } = body;
+      if (!item_id || !item_name) throw new Error("item_id and item_name required");
+
+      const prompt = `A beautiful, appetizing food illustration of "${item_name}", ${is_veg ? 'vegetarian' : 'non-vegetarian'} Indian dish, top-down view on a clean plate, professional food photography style, warm lighting, garnished beautifully, on a solid white background`;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{ role: "user", content: prompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("Image gen error:", response.status, errText);
+        throw new Error(`Image generation failed: ${response.status}`);
+      }
+
+      const aiData = await response.json();
+      const imageUrl = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      
+      if (!imageUrl) throw new Error("No image generated");
+
+      // Extract base64 data and upload to storage
+      const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
+      const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      
+      const fileName = `items/${item_id}.png`;
+      
+      // Upload to gallery storage bucket
+      const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/gallery/${fileName}`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          "Content-Type": "image/png",
+          "x-upsert": "true",
+        },
+        body: imageBytes,
+      });
+
+      if (!uploadRes.ok) {
+        const uploadErr = await uploadRes.text();
+        console.error("Upload error:", uploadErr);
+        throw new Error("Failed to upload image");
+      }
+
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/gallery/${fileName}`;
+
+      // Save to gallery_images table
+      await fetch(`${SUPABASE_URL}/rest/v1/gallery_images`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates",
+        },
+        body: JSON.stringify({
+          menu_item_id: item_id,
+          image_url: publicUrl,
+          caption: `AI illustration of ${item_name}`,
+        }),
+      });
+
+      return new Response(JSON.stringify({ success: true, image_url: publicUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Handle batch illustration generation (returns item IDs that need images)
+    if (body.action === 'list-items-without-images') {
+      // Get all menu items
+      const itemsRes = await fetch(`${SUPABASE_URL}/rest/v1/menu_items?select=id,name,is_veg`, {
+        headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      });
+      const items = await itemsRes.json();
+
+      // Get existing gallery images
+      const imagesRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_images?select=menu_item_id`, {
+        headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      });
+      const images = await imagesRes.json();
+      const existingIds = new Set((images || []).map((i: any) => i.menu_item_id));
+
+      const missing = (items || []).filter((i: any) => !existingIds.has(i.id));
+
+      return new Response(JSON.stringify({ items: missing, total: items?.length || 0, missing: missing.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Default: craving recommendation
     const { query } = body;
 
