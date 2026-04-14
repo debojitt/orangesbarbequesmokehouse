@@ -268,14 +268,22 @@ const StaffMenu = () => {
       <div className="ios-card p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-display text-lg text-primary">Menu Items ({filteredMenuItems.length})</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={handleGenerateAllDescriptions}
               disabled={generatingDescriptions}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary/40 text-primary rounded-full disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full disabled:opacity-50"
             >
               {generatingDescriptions ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
               AI Descriptions
+            </button>
+            <button
+              onClick={handleGenerateAllImages}
+              disabled={generatingImages}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full disabled:opacity-50"
+            >
+              {generatingImages ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+              AI Images
             </button>
             <button
               onClick={() => { resetItemForm(); setShowItemForm(true); }}
@@ -284,6 +292,9 @@ const StaffMenu = () => {
               <Plus className="w-3 h-3" /> Add Item
             </button>
           </div>
+          {imageProgress && (
+            <p className="text-xs text-muted-foreground mt-1">{imageProgress}</p>
+          )}
         </div>
 
         {/* Category filter */}
