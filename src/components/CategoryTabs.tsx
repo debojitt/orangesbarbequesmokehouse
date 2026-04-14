@@ -15,67 +15,67 @@ interface CategoryTabsProps {
 
 const CategoryTabs = ({ categories, activeCategory, onSelect }: CategoryTabsProps) => {
   const [showAll, setShowAll] = useState(false);
-  const visibleCats = categories.slice(0, 5);
+  const visibleCats = categories.slice(0, 7);
 
   return (
     <>
       <div className="px-4 py-3">
-        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="grid grid-cols-4 gap-2">
           <button
             onClick={() => onSelect(null)}
-            className={`flex flex-col items-center gap-1.5 min-w-[56px] transition-all ${!activeCategory ? 'opacity-100' : 'opacity-50'}`}
+            className={`flex flex-col items-center justify-center gap-1 p-3 rounded-2xl transition-all border ${
+              !activeCategory
+                ? 'maroon-gradient text-primary-foreground border-transparent shadow-md'
+                : 'bg-white text-foreground border-border shadow-sm hover:shadow-md'
+            }`}
           >
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg ${!activeCategory ? 'maroon-gradient text-primary-foreground' : 'bg-secondary/60'}`}>
-              ✕
-            </div>
-            <span className="text-[10px] font-medium text-foreground">ALL</span>
+            <span className="text-base">🍽️</span>
+            <span className="text-[10px] font-semibold">ALL</span>
           </button>
           {visibleCats.map((cat) => (
             <button
               key={cat.id}
               onClick={() => onSelect(activeCategory === cat.id ? null : cat.id)}
-              className={`flex flex-col items-center gap-1.5 min-w-[56px] transition-all ${activeCategory === cat.id ? 'opacity-100' : 'opacity-60'}`}
+              className={`flex flex-col items-center justify-center gap-1 p-3 rounded-2xl transition-all border ${
+                activeCategory === cat.id
+                  ? 'maroon-gradient text-primary-foreground border-transparent shadow-md'
+                  : 'bg-white text-foreground border-border shadow-sm hover:shadow-md'
+              }`}
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg ${
-                activeCategory === cat.id ? 'maroon-gradient text-primary-foreground' : 'bg-secondary/60'
-              }`}>
-                {cat.icon || '🍽️'}
-              </div>
-              <span className="text-[10px] font-medium text-foreground truncate max-w-[56px]">{cat.name}</span>
+              <span className="text-base">{cat.icon || '🍽️'}</span>
+              <span className="text-[10px] font-semibold leading-tight text-center line-clamp-1">{cat.name}</span>
             </button>
           ))}
-          {categories.length > 5 && (
+          {categories.length > 7 && (
             <button
               onClick={() => setShowAll(true)}
-              className="flex flex-col items-center gap-1.5 min-w-[56px]"
+              className="flex flex-col items-center justify-center gap-1 p-3 rounded-2xl border border-primary/30 bg-white shadow-sm hover:shadow-md transition-all"
             >
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg bg-secondary/60 border border-primary/30">
-                ≡
-              </div>
-              <span className="text-[10px] font-medium text-primary">MORE</span>
+              <span className="text-base">≡</span>
+              <span className="text-[10px] font-semibold text-primary">MORE</span>
             </button>
           )}
         </div>
       </div>
 
       <Dialog open={showAll} onOpenChange={setShowAll}>
-        <DialogContent className="glass-panel-strong border-border rounded-2xl max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogContent className="bg-white border-border rounded-3xl max-w-md max-h-[80vh] overflow-y-auto shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="font-display gold-text">All Categories</DialogTitle>
+            <DialogTitle className="font-display text-lg text-foreground">All Categories</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-3 gap-3 mt-4">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => { onSelect(cat.id); setShowAll(false); }}
-                className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all ${
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all border ${
                   activeCategory === cat.id
-                    ? 'maroon-gradient text-primary-foreground'
-                    : 'bg-secondary/40 text-foreground hover:border-primary/30 border border-transparent'
+                    ? 'maroon-gradient text-primary-foreground border-transparent'
+                    : 'bg-white text-foreground border-border shadow-sm hover:shadow-md'
                 }`}
               >
                 <span className="text-xl mb-1">{cat.icon || '🍽️'}</span>
-                <span className="text-[10px] font-medium text-center leading-tight">{cat.name}</span>
+                <span className="text-[10px] font-semibold text-center leading-tight">{cat.name}</span>
               </button>
             ))}
           </div>

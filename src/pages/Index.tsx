@@ -111,28 +111,28 @@ const Index = () => {
       {/* Sidebar Overlay */}
       {showSidebar && (
         <div className="fixed inset-0 z-[60] flex">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowSidebar(false)} />
-          <div className="relative w-72 h-full glass-panel-strong border-r border-border/50 p-6 flex flex-col animate-slide-up">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSidebar(false)} />
+          <div className="relative w-72 h-full bg-white border-r border-border p-6 flex flex-col" style={{ animation: 'slideIn 0.2s ease-out' }}>
             <button onClick={() => setShowSidebar(false)} className="absolute top-4 right-4 text-muted-foreground">
               <X className="w-5 h-5" />
             </button>
             <h2 className="font-display text-2xl gold-text mb-8 mt-2">INARA</h2>
             <nav className="flex flex-col gap-1 flex-1">
-              <Link to="/" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-secondary/60 text-sm font-medium">
+              <Link to="/" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-foreground hover:bg-secondary text-sm font-medium">
                 <Search className="w-4 h-4" /> Menu
               </Link>
-              <Link to="/review" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-secondary/60 text-sm font-medium">
+              <Link to="/review" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-foreground hover:bg-secondary text-sm font-medium">
                 <Star className="w-4 h-4" /> Review Us
               </Link>
-              <Link to="/loyalty" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-secondary/60 text-sm font-medium">
+              <Link to="/loyalty" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-foreground hover:bg-secondary text-sm font-medium">
                 <Heart className="w-4 h-4" /> Loyalty Card
               </Link>
-              <Link to="/cart" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-foreground hover:bg-secondary/60 text-sm font-medium">
+              <Link to="/cart" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-foreground hover:bg-secondary text-sm font-medium">
                 <ShoppingCart className="w-4 h-4" /> Cart {itemCount > 0 && <span className="ml-auto bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">{itemCount}</span>}
               </Link>
             </nav>
-            <div className="border-t border-border/50 pt-4 mt-4">
-              <Link to="/staff/login" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-secondary/60 text-xs">
+            <div className="border-t border-border pt-4 mt-4">
+              <Link to="/staff/login" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-muted-foreground hover:bg-secondary text-xs">
                 <Lock className="w-3 h-3" /> Staff Portal
               </Link>
             </div>
@@ -140,73 +140,74 @@ const Index = () => {
         </div>
       )}
 
-      {/* Header */}
+      {/* Sticky Top Nav Bar ONLY */}
       <header className="sticky top-0 z-50 glass-panel-strong">
-        <div className="px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <button onClick={() => setShowSidebar(true)} className="text-foreground p-1">
-              <Menu className="w-5 h-5" />
-            </button>
-            <h1 className="font-display text-xl tracking-widest gold-text">INARA</h1>
-            <Link to="/cart" className="relative p-1">
-              <ShoppingCart className="w-5 h-5 text-primary" />
-              {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">{itemCount}</span>
-              )}
-            </Link>
-          </div>
-
-          {/* Greeting */}
-          <div className="mb-3">
-            <p className="text-muted-foreground text-xs uppercase tracking-widest">{getGreeting()}</p>
-            <h2 className="font-display text-2xl text-foreground leading-tight">The Artisan<br/>Table</h2>
-          </div>
-
-          {/* Search */}
-          <div className="flex items-center gap-2 bg-secondary/80 rounded-2xl px-4 py-2.5">
-            <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Explore the menu..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent text-foreground text-sm placeholder:text-muted-foreground focus:outline-none w-full"
-            />
-          </div>
-        </div>
-
-        {/* Category Icons Row */}
-        <CategoryTabs categories={categories} activeCategory={activeCategory} onSelect={setActiveCategory} />
-
-        {/* Filter chips */}
-        <div className="px-4 pb-3 flex items-center gap-2">
-          {[
-            { key: 'all' as const, label: 'All', color: 'maroon-gradient text-primary-foreground' },
-            { key: 'veg' as const, label: 'Veg', color: 'bg-green-600/90 text-white' },
-            { key: 'nonveg' as const, label: 'Non-Veg', color: 'bg-red-600/90 text-white' },
-          ].map(({ key, label, color }) => (
-            <button
-              key={key}
-              onClick={() => setVegFilter(key)}
-              className={`px-3 py-1 text-xs font-medium rounded-full transition-all ${
-                vegFilter === key ? color : 'bg-secondary/60 text-muted-foreground'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="px-4 py-3 flex items-center justify-between">
+          <button onClick={() => setShowSidebar(true)} className="text-foreground p-1">
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="font-display text-xl tracking-widest gold-text">INARA</h1>
+          <Link to="/cart" className="relative p-1">
+            <ShoppingCart className="w-5 h-5 text-primary" />
+            {itemCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">{itemCount}</span>
+            )}
+          </Link>
         </div>
       </header>
+
+      {/* Hero Section - scrolls normally */}
+      <div className="px-4 pt-4 pb-3">
+        {/* Greeting */}
+        <div className="mb-4">
+          <p className="text-muted-foreground text-xs uppercase tracking-widest">{getGreeting()}</p>
+          <h2 className="font-display text-3xl text-foreground leading-tight mt-1">Escape the<br/>ordinary</h2>
+        </div>
+
+        {/* Search */}
+        <div className="flex items-center gap-2 bg-white rounded-2xl px-4 py-2.5 shadow-sm border border-border">
+          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <input
+            type="text"
+            placeholder="Explore the menu..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent text-foreground text-sm placeholder:text-muted-foreground focus:outline-none w-full"
+          />
+        </div>
+      </div>
+
+      {/* Category Grid */}
+      <CategoryTabs categories={categories} activeCategory={activeCategory} onSelect={setActiveCategory} />
+
+      {/* Filter chips */}
+      <div className="px-4 pb-3 flex items-center gap-2">
+        {[
+          { key: 'all' as const, label: 'ALL', activeClass: 'maroon-gradient text-primary-foreground' },
+          { key: 'veg' as const, label: 'Veg', activeClass: 'bg-green-600 text-white' },
+          { key: 'nonveg' as const, label: 'Non-Veg', activeClass: 'bg-red-600 text-white' },
+        ].map(({ key, label, activeClass }) => (
+          <button
+            key={key}
+            onClick={() => setVegFilter(key)}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all ${
+              vegFilter === key ? activeClass : 'bg-white text-muted-foreground border border-border shadow-sm'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <TodayOffers />
 
       {/* Menu Items */}
-      <div className="px-4 py-4 space-y-6 pb-32">
+      <div className="px-4 py-4 space-y-6 pb-48">
         {groupedItems.map((group, idx) => (
           <div key={idx}>
             {group.category && (
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-display text-lg gold-text flex items-center gap-2">
+                <h2 className="font-display text-lg text-foreground flex items-center gap-2">
                   {group.category.icon && <span>{group.category.icon}</span>}
                   {group.category.name}
                 </h2>
@@ -236,8 +237,8 @@ const Index = () => {
         </p>
       </footer>
 
-      {/* Bottom Navigation Bar (iOS style) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 glass-panel-strong border-t border-border/30 safe-area-bottom">
+      {/* Bottom Navigation Bar - iOS frosted glass */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 ios-bottom-nav safe-area-bottom">
         <div className="flex items-center justify-around py-2">
           <Link to="/" className="flex flex-col items-center gap-0.5 py-1 px-3">
             <Search className="w-5 h-5 text-primary" />
@@ -249,8 +250,7 @@ const Index = () => {
           </Link>
           <button
             onClick={() => setShowAI(!showAI)}
-            className="w-14 h-14 -mt-6 rounded-full maroon-gradient text-primary-foreground flex items-center justify-center shadow-lg"
-            style={{ animation: 'pulse-gold 2s infinite' }}
+            className="w-14 h-14 -mt-6 rounded-full maroon-gradient text-primary-foreground flex items-center justify-center shadow-lg animate-pulse-gold"
           >
             <Sparkles className="w-6 h-6" />
           </button>

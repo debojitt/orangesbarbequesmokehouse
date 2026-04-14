@@ -6,7 +6,6 @@ const TodayOffers = () => {
   const { data: offers = [] } = useQuery({
     queryKey: ['active-offers'],
     queryFn: async () => {
-      const now = new Date().toISOString();
       const { data } = await supabase
         .from('discounts')
         .select('*')
@@ -22,14 +21,14 @@ const TodayOffers = () => {
   if (offers.length === 0) return null;
 
   return (
-    <div className="mx-4 mt-4">
+    <div className="mx-4 mt-2 mb-2">
       <div className="flex items-center gap-2 mb-2">
         <Tag className="w-4 h-4 text-primary" />
-        <h2 className="font-display text-sm text-primary">Today's Offers</h2>
+        <h2 className="font-display text-sm text-foreground">Today's Offers</h2>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {offers.map((offer) => (
-          <div key={offer.id} className="flex-shrink-0 px-4 py-2 gold-gradient text-primary-foreground text-xs font-medium">
+          <div key={offer.id} className="flex-shrink-0 px-4 py-2 maroon-gradient text-primary-foreground text-xs font-semibold rounded-xl shadow-sm">
             {offer.name} — {offer.value}% OFF
           </div>
         ))}
