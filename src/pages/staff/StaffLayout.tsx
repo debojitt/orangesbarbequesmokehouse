@@ -1,7 +1,7 @@
 import { useStaffAuth } from '@/contexts/StaffAuthContext';
 import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import { Lock, LogOut, LayoutDashboard, UtensilsCrossed, Tag, Heart, Menu, X, ChevronRight } from 'lucide-react';
+import { Lock, LogOut, LayoutDashboard, UtensilsCrossed, Tag, Heart, Menu, X, ChevronRight, Ticket } from 'lucide-react';
 
 const StaffLayout = () => {
   const { staff, isLocked, logout, lock, unlock } = useStaffAuth();
@@ -17,7 +17,7 @@ const StaffLayout = () => {
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="ios-card p-8 max-w-sm w-full text-center">
           <Lock className="w-12 h-12 text-primary mx-auto mb-4" />
-          <h2 className="font-display text-xl text-primary mb-2">Portal Locked</h2>
+          <h2 className="font-display text-xl text-foreground mb-2">Portal Locked</h2>
           <p className="text-muted-foreground text-sm mb-4">Enter PIN to unlock</p>
           <input
             type="password"
@@ -43,6 +43,7 @@ const StaffLayout = () => {
     { path: '/staff/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/staff/menu', label: 'Menu Manager', icon: UtensilsCrossed },
     { path: '/staff/offers', label: 'Offers & Discounts', icon: Tag },
+    { path: '/staff/coupons', label: 'Coupons', icon: Ticket },
     { path: '/staff/loyalty', label: 'Loyalty Program', icon: Heart },
   ];
 
@@ -51,9 +52,9 @@ const StaffLayout = () => {
       {/* Collapsible Sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-[60] flex">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
-          <div className="relative w-72 h-full glass-panel-strong border-r border-border/50 flex flex-col" style={{ animation: 'slideIn 0.2s ease-out' }}>
-            <div className="p-6 border-b border-border/30">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <div className="relative w-72 h-full bg-white border-r border-border flex flex-col" style={{ animation: 'slideIn 0.2s ease-out' }}>
+            <div className="p-6 border-b border-border">
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-xl gold-text">Staff Panel</h2>
                 <button onClick={() => setSidebarOpen(false)} className="text-muted-foreground"><X className="w-5 h-5" /></button>
@@ -66,8 +67,8 @@ const StaffLayout = () => {
                   key={path}
                   to={path}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                    location.pathname === path ? 'maroon-gradient text-primary-foreground' : 'text-foreground hover:bg-secondary/60'
+                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all ${
+                    location.pathname === path ? 'maroon-gradient text-primary-foreground' : 'text-foreground hover:bg-secondary'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -76,11 +77,11 @@ const StaffLayout = () => {
                 </Link>
               ))}
             </nav>
-            <div className="p-4 border-t border-border/30 space-y-1">
-              <button onClick={lock} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:bg-secondary/60 w-full">
+            <div className="p-4 border-t border-border space-y-1">
+              <button onClick={lock} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-muted-foreground hover:bg-secondary w-full">
                 <Lock className="w-4 h-4" /> Lock Portal
               </button>
-              <button onClick={logout} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-destructive hover:bg-secondary/60 w-full">
+              <button onClick={logout} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-destructive hover:bg-secondary w-full">
                 <LogOut className="w-4 h-4" /> Logout
               </button>
             </div>
@@ -94,14 +95,14 @@ const StaffLayout = () => {
             <button onClick={() => setSidebarOpen(true)} className="text-foreground p-1"><Menu className="w-5 h-5" /></button>
             <h1 className="font-display text-lg gold-text">INARA Staff</h1>
           </div>
-          <span className="text-xs text-muted-foreground bg-secondary/60 px-2 py-1 rounded-full">{staff.name}</span>
+          <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-full">{staff.name}</span>
         </div>
       </header>
 
       {/* Bottom nav for quick access */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 glass-panel-strong border-t border-border/30">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 ios-bottom-nav safe-area-bottom">
         <div className="flex items-center justify-around py-2">
-          {navItems.map(({ path, label, icon: Icon }) => (
+          {navItems.slice(0, 4).map(({ path, label, icon: Icon }) => (
             <Link
               key={path}
               to={path}

@@ -59,7 +59,7 @@ const CartPage = () => {
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
-        <h1 className="font-display text-2xl gold-text mb-4">Your Cart is Empty</h1>
+        <h1 className="font-display text-2xl text-foreground mb-4">Your Cart is Empty</h1>
         <p className="text-muted-foreground mb-6 text-sm">Add some delicious items from the menu!</p>
         <Link to="/" className="px-6 py-2.5 maroon-gradient text-primary-foreground font-medium rounded-full">
           Browse Menu
@@ -74,7 +74,7 @@ const CartPage = () => {
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="w-5 h-5" /></Link>
-            <h1 className="font-display text-xl gold-text">Your Cart</h1>
+            <h1 className="font-display text-xl text-foreground">Your Cart</h1>
           </div>
           <button onClick={clearCart} className="text-xs text-destructive hover:underline">Clear All</button>
         </div>
@@ -88,20 +88,20 @@ const CartPage = () => {
               <div>
                 <p className="text-foreground text-sm font-medium">{item.name}</p>
                 {item.variantName && <p className="text-muted-foreground text-xs">{item.variantName}</p>}
-                <p className="text-primary text-sm font-semibold">₹{item.price}</p>
+                <p className="text-primary text-sm font-bold">₹{item.price}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center border border-border rounded-full overflow-hidden">
+              <div className="flex items-center border border-border rounded-full overflow-hidden bg-white shadow-sm">
                 <button onClick={() => updateQuantity(item.menuItemId, item.variantId, item.quantity - 1)} className="p-2 text-muted-foreground hover:text-foreground">
                   <Minus className="w-3 h-3" />
                 </button>
-                <span className="px-3 text-sm font-medium text-foreground">{item.quantity}</span>
+                <span className="px-3 text-sm font-bold text-foreground">{item.quantity}</span>
                 <button onClick={() => updateQuantity(item.menuItemId, item.variantId, item.quantity + 1)} className="p-2 text-muted-foreground hover:text-foreground">
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
-              <span className="text-foreground font-semibold text-sm min-w-[50px] text-right">₹{item.price * item.quantity}</span>
+              <span className="text-foreground font-bold text-sm min-w-[50px] text-right">₹{item.price * item.quantity}</span>
               <button onClick={() => removeItem(item.menuItemId, item.variantId)} className="text-destructive p-1">
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -127,7 +127,7 @@ const CartPage = () => {
               value={couponCode}
               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
               placeholder="Enter code"
-              className="flex-1 px-4 py-2 bg-secondary/60 text-foreground text-sm rounded-xl border border-border focus:outline-none focus:border-primary placeholder:text-muted-foreground"
+              className="flex-1 px-4 py-2 bg-secondary text-foreground text-sm rounded-xl border border-border focus:outline-none focus:border-primary placeholder:text-muted-foreground"
             />
             <button
               onClick={handleApplyCoupon}
@@ -140,17 +140,17 @@ const CartPage = () => {
         )}
       </div>
 
-      {/* Bill Summary — show only approximate total */}
+      {/* Bill Summary */}
       <div className="mx-4 mt-4 ios-card p-4">
-        <h2 className="font-display text-lg text-primary mb-3">Approximate Bill</h2>
+        <h2 className="font-display text-lg text-foreground mb-3">Approximate Bill</h2>
         <div className="space-y-2">
           {appliedCoupon && (
             <div className="flex justify-between text-sm">
-              <span className="text-green-400">Coupon Discount</span>
-              <span className="text-green-400">-₹{appliedCoupon.discount}</span>
+              <span className="text-green-600">Coupon Discount</span>
+              <span className="text-green-600">-₹{appliedCoupon.discount}</span>
             </div>
           )}
-          <div className="border-t border-border pt-2 flex justify-between text-lg font-semibold">
+          <div className="border-t border-border pt-2 flex justify-between text-lg font-bold">
             <span className="text-foreground">Approximate Total</span>
             <span className="text-primary">≈ ₹{finalTotal}</span>
           </div>

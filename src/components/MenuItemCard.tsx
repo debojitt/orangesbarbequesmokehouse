@@ -30,7 +30,6 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
   const { addItem, items, updateQuantity } = useCart();
   const hasVariants = item.variants.length > 0;
 
-  // Items with variants should show neutral badge (both veg & non-veg options possible)
   const badgeClass = hasVariants ? 'neutral-badge' : item.is_veg ? 'veg-badge' : 'nonveg-badge';
 
   const cartItem = items.find(i => i.menuItemId === item.id && !i.variantId);
@@ -57,15 +56,15 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h3 className="text-foreground font-medium text-sm">{item.name}</h3>
+            <h3 className="text-foreground font-semibold text-sm">{item.name}</h3>
             {item.is_bestseller && (
               <span className="px-1.5 py-0.5 text-[8px] font-bold maroon-gradient text-primary-foreground rounded-full">BEST</span>
             )}
             {item.is_chef_special && (
-              <span className="px-1.5 py-0.5 text-[8px] font-bold border border-primary/50 text-primary rounded-full">CHEF</span>
+              <span className="px-1.5 py-0.5 text-[8px] font-bold border border-primary text-primary rounded-full">CHEF</span>
             )}
             {item.is_daily_special && (
-              <span className="px-1.5 py-0.5 text-[8px] font-bold bg-primary/20 text-primary rounded-full">TODAY</span>
+              <span className="px-1.5 py-0.5 text-[8px] font-bold bg-primary/10 text-primary rounded-full">TODAY</span>
             )}
           </div>
           {item.description && <p className="text-muted-foreground text-xs mt-0.5 line-clamp-2">{item.description}</p>}
@@ -74,10 +73,10 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
             {item.discountedPrice ? (
               <>
                 <span className="text-muted-foreground text-xs line-through">₹{item.base_price}</span>
-                <span className="text-primary font-semibold text-sm">₹{item.discountedPrice}</span>
+                <span className="text-primary font-bold text-sm">₹{item.discountedPrice}</span>
               </>
             ) : (
-              <span className="text-primary font-semibold text-sm">
+              <span className="text-primary font-bold text-sm">
                 {hasVariants ? `₹${Math.min(...item.variants.map(v => v.price))}+` : `₹${item.base_price}`}
               </span>
             )}
@@ -88,18 +87,18 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
           hasVariants ? (
             <button
               onClick={handleAddBase}
-              className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary/40 text-primary text-xs font-medium hover:bg-primary/10 active:scale-95"
+              className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary text-primary text-xs font-semibold hover:bg-primary/5 active:scale-95"
             >
               {expanded ? 'Hide' : 'Options'}
               {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           ) : cartItem ? (
-            <div className="flex items-center gap-0.5 border border-primary/40 rounded-full overflow-hidden">
-              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity - 1)} className="p-1.5 text-primary hover:bg-primary/10 active:scale-95">
+            <div className="flex items-center gap-0.5 border border-primary rounded-full overflow-hidden bg-white shadow-sm">
+              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity - 1)} className="p-1.5 text-primary hover:bg-primary/5 active:scale-95">
                 <Minus className="w-3 h-3" />
               </button>
-              <span className="px-2 text-xs font-semibold text-foreground min-w-[20px] text-center">{cartItem.quantity}</span>
-              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity + 1)} className="p-1.5 text-primary hover:bg-primary/10 active:scale-95">
+              <span className="px-2 text-xs font-bold text-foreground min-w-[20px] text-center">{cartItem.quantity}</span>
+              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity + 1)} className="p-1.5 text-primary hover:bg-primary/5 active:scale-95">
                 <Plus className="w-3 h-3" />
               </button>
             </div>
@@ -117,33 +116,33 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
       </div>
 
       {expanded && hasVariants && (
-        <div className="border-t border-border/30 bg-secondary/10 px-4 py-2 space-y-1" style={{ animation: 'slideIn 0.2s ease-out' }}>
+        <div className="border-t border-border bg-secondary/30 px-4 py-2 space-y-1" style={{ animation: 'slideIn 0.2s ease-out' }}>
           {item.variants.map((v) => {
             const cv = cartVariantItems.find(ci => ci.variantId === v.id);
             return (
-              <div key={v.id} className="flex items-center justify-between py-2 px-2 rounded-xl hover:bg-secondary/20">
+              <div key={v.id} className="flex items-center justify-between py-2 px-2 rounded-xl hover:bg-white/60">
                 <div>
-                  <span className="text-foreground text-sm">{v.name}</span>
+                  <span className="text-foreground text-sm font-medium">{v.name}</span>
                   {v.serves_count && v.serves_count > 1 && (
                     <span className="text-muted-foreground text-xs ml-1.5">• Serves {v.serves_count}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-primary font-semibold text-sm">₹{v.price}</span>
+                  <span className="text-primary font-bold text-sm">₹{v.price}</span>
                   {cv ? (
-                    <div className="flex items-center gap-0.5 border border-primary/40 rounded-full overflow-hidden">
-                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity - 1)} className="p-1 text-primary hover:bg-primary/10 active:scale-95">
+                    <div className="flex items-center gap-0.5 border border-primary rounded-full overflow-hidden bg-white">
+                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity - 1)} className="p-1 text-primary hover:bg-primary/5 active:scale-95">
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="px-1.5 text-xs font-semibold text-foreground">{cv.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity + 1)} className="p-1 text-primary hover:bg-primary/10 active:scale-95">
+                      <span className="px-1.5 text-xs font-bold text-foreground">{cv.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity + 1)} className="p-1 text-primary hover:bg-primary/5 active:scale-95">
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => handleAddVariant(v)}
-                      className="px-3 py-1 text-xs font-medium maroon-gradient text-primary-foreground rounded-full active:scale-95"
+                      className="px-3 py-1 text-xs font-semibold maroon-gradient text-primary-foreground rounded-full active:scale-95"
                     >
                       ADD
                     </button>

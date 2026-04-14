@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Edit, Trash2, Eye, EyeOff, ChefHat, Flame, Wand2, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, ChefHat, Flame, Wand2, Loader2, Image } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
@@ -12,6 +12,8 @@ const StaffMenu = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [imageProgress, setImageProgress] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('');
 
   const [itemForm, setItemForm] = useState({
@@ -172,6 +174,42 @@ const StaffMenu = () => {
     setGeneratingDescriptions(false);
   };
 
+  const handleGenerateAllImages = async () => {
+    setGeneratingImages(true);
+    setImageProgress('Checking items...');
+    try {
+      const { data: listData } = await supabase.functions.invoke('ai-craving', {
+        body: { action: 'list-items-without-images' },
+      });
+      const missingItems = listData?.items || [];
+      if (missingItems.length === 0) {
+        toast.info('All items already have illustrations');
+        setGeneratingImages(false);
+        setImageProgress('');
+        return;
+      }
+      let generated = 0;
+      for (const item of missingItems) {
+        setImageProgress(`Generating ${generated + 1}/${missingItems.length}: ${item.name}`);
+        try {
+          await supabase.functions.invoke('ai-craving', {
+            body: { action: 'generate-illustration', item_id: item.id, item_name: item.name, is_veg: item.is_veg },
+          });
+          generated++;
+        } catch (err) {
+          console.error(`Failed to generate image for ${item.name}:`, err);
+        }
+        // Small delay to avoid rate limiting
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      toast.success(`Generated illustrations for ${generated} items`);
+    } catch (e) {
+      toast.error('Failed to generate illustrations');
+    }
+    setGeneratingImages(false);
+    setImageProgress('');
+  };
+
   const resetItemForm = () => {
     setItemForm({ name: '', description: '', serving_info: '', base_price: '', category_id: '', is_veg: true, is_bestseller: false, is_chef_special: false, is_daily_special: false, variants: [] });
     setEditingItem(null);
@@ -230,14 +268,22 @@ const StaffMenu = () => {
       <div className="ios-card p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-display text-lg text-primary">Menu Items ({filteredMenuItems.length})</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={handleGenerateAllDescriptions}
               disabled={generatingDescriptions}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary/40 text-primary rounded-full disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full disabled:opacity-50"
             >
               {generatingDescriptions ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
               AI Descriptions
+            </button>
+            <button
+              onClick={handleGenerateAllImages}
+              disabled={generatingImages}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full disabled:opacity-50"
+            >
+              {generatingImages ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+              AI Images
             </button>
             <button
               onClick={() => { resetItemForm(); setShowItemForm(true); }}
@@ -246,6 +292,9 @@ const StaffMenu = () => {
               <Plus className="w-3 h-3" /> Add Item
             </button>
           </div>
+          {imageProgress && (
+            <p className="text-xs text-muted-foreground mt-1">{imageProgress}</p>
+          )}
         </div>
 
         {/* Category filter */}

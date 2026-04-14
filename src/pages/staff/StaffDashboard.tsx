@@ -1,18 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Gift, TrendingUp, MessageSquare, Star, ShoppingCart, Tag } from 'lucide-react';
+import { Users, Gift, TrendingUp, MessageSquare, Star, ShoppingCart, BarChart3, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 const StaffDashboard = () => {
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+
   const { data: stats } = useQuery({
     queryKey: ['staff-stats'],
     queryFn: async () => {
-      const [customers, feedback, selections, visits, coupons, menuItems] = await Promise.all([
+      const [customers, feedback, selections, visits, coupons, menuItems, cravings] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }),
         supabase.from('feedback').select('*').order('created_at', { ascending: false }).limit(20),
         supabase.from('item_selections').select('menu_item_id, menu_items(name)').gte('selected_at', new Date(Date.now() - 7 * 86400000).toISOString()),
         supabase.from('loyalty_visits').select('id', { count: 'exact', head: true }).gte('claimed_at', new Date(Date.now() - 30 * 86400000).toISOString()),
         supabase.from('coupons').select('id', { count: 'exact', head: true }),
         supabase.from('menu_items').select('id', { count: 'exact', head: true }),
+        supabase.from('ai_cravings_log').select('*').order('created_at', { ascending: false }).limit(50),
       ]);
 
       const itemCounts: Record<string, { name: string; count: number }> = {};
@@ -35,9 +41,37 @@ const StaffDashboard = () => {
         feedback: feedback.data || [],
         topItems,
         avgRating,
+        recentCravings: cravings.data || [],
       };
     },
   });
+
+  const handleGenerateSummary = async () => {
+    setLoadingSummary(true);
+    try {
+      const feedbackSummary = (stats?.feedback || []).map(f => `Rating: ${f.rating}/5${f.message ? ` - "${f.message}"` : ''}`).join('\n');
+      const cravingSummary = (stats?.recentCravings || []).map((c: any) => c.query).join(', ');
+      const topItemsSummary = (stats?.topItems || []).map(i => `${i.name} (${i.count} picks)`).join(', ');
+
+      const { data } = await supabase.functions.invoke('ai-craving', {
+        body: {
+          query: `Generate a daily business summary for INARA restaurant. Here's today's data:
+- Total guests: ${stats?.totalGuests || 0}
+- Avg rating: ${stats?.avgRating || 'N/A'}
+- Top trending items: ${topItemsSummary || 'No data'}
+- Recent customer cravings: ${cravingSummary || 'None'}
+- Recent feedback:\n${feedbackSummary || 'No feedback'}
+
+Provide a concise summary with key insights, what customers are loving, areas to improve, and actionable suggestions for tomorrow. Keep it under 200 words.`,
+        },
+      });
+
+      setAiSummary(data?.message || data?.suggestions?.[0] || 'No summary available');
+    } catch {
+      toast.error('Failed to generate summary');
+    }
+    setLoadingSummary(false);
+  };
 
   const statCards = [
     { label: 'Total Guests', value: stats?.totalGuests || 0, icon: Users },
@@ -63,17 +97,39 @@ const StaffDashboard = () => {
         ))}
       </div>
 
+      {/* AI Daily Summary */}
+      <div className="ios-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-display text-sm text-foreground flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" /> AI Daily Summary
+          </h3>
+          <button
+            onClick={handleGenerateSummary}
+            disabled={loadingSummary}
+            className="flex items-center gap-1 px-3 py-1 text-xs font-semibold maroon-gradient text-primary-foreground rounded-full disabled:opacity-50"
+          >
+            {loadingSummary ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            Generate
+          </button>
+        </div>
+        {aiSummary ? (
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{aiSummary}</p>
+        ) : (
+          <p className="text-muted-foreground text-sm">Click "Generate" to get an AI-powered daily summary of visitor activity, feedback, and trends.</p>
+        )}
+      </div>
+
       {/* Top Items */}
       <div className="ios-card p-4">
-        <h3 className="font-display text-sm text-primary mb-3 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4" /> Trending This Week
+        <h3 className="font-display text-sm text-foreground mb-3 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-primary" /> Trending This Week
         </h3>
         {stats?.topItems && stats.topItems.length > 0 ? (
           <div className="space-y-2">
             {stats.topItems.map((item, i) => (
-              <div key={i} className="flex justify-between items-center text-sm bg-secondary/20 rounded-xl px-3 py-2">
+              <div key={i} className="flex justify-between items-center text-sm bg-secondary rounded-xl px-3 py-2">
                 <span className="text-foreground">{i + 1}. {item.name}</span>
-                <span className="text-primary font-medium text-xs">{item.count} picks</span>
+                <span className="text-primary font-semibold text-xs">{item.count} picks</span>
               </div>
             ))}
           </div>
@@ -84,13 +140,13 @@ const StaffDashboard = () => {
 
       {/* Recent Feedback */}
       <div className="ios-card p-4">
-        <h3 className="font-display text-sm text-primary mb-3 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" /> Recent Feedback
+        <h3 className="font-display text-sm text-foreground mb-3 flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-primary" /> Recent Feedback
         </h3>
         <div className="space-y-2">
           {stats?.feedback && stats.feedback.length > 0 ? (
             stats.feedback.slice(0, 10).map((fb) => (
-              <div key={fb.id} className="bg-secondary/20 rounded-xl p-3">
+              <div key={fb.id} className="bg-secondary rounded-xl p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="flex">
                     {[1, 2, 3, 4, 5].map((s) => (
