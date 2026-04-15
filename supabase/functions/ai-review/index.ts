@@ -10,42 +10,39 @@ serve(async (req) => {
 
   try {
     const { message, rating } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are INARA restaurant's customer care AI. A customer gave a ${rating}-star rating and shared feedback.
+    const systemPrompt = `You are INARA restaurant's customer care AI. A customer gave a ${rating}-star rating and shared feedback.
 Your job: Respond empathetically, acknowledge their issue, and assure them it will be addressed.
 Be warm, professional, and concise (2-3 sentences max). Don't be defensive.
-If they mention specific food issues, acknowledge that specifically.`
-          },
-          { role: "user", content: message }
-        ],
-      }),
-    });
+If they mention specific food issues, acknowledge that specifically.`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            { role: "user", parts: [{ text: systemPrompt }] },
+            { role: "model", parts: [{ text: "Understood. I will respond empathetically to the customer feedback." }] },
+            { role: "user", parts: [{ text: message }] },
+          ],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+        }),
+      }
+    );
 
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
       throw new Error("AI error");
     }
 
     const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content || "Thank you for your feedback. We'll improve.";
+    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "Thank you for your feedback. We'll improve.";
 
     return new Response(JSON.stringify({ response: aiResponse }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
