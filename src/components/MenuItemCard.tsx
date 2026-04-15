@@ -23,6 +23,7 @@ interface MenuItem {
   is_daily_special: boolean;
   variants: Variant[];
   discountedPrice?: number;
+  imageUrl?: string | null;
 }
 
 const MenuItemCard = ({ item }: { item: MenuItem }) => {
@@ -52,10 +53,21 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
   return (
     <div className={`ios-card ${!item.is_available ? 'opacity-40' : ''}`}>
       <div className="p-4 flex items-start gap-3">
-        <div className={`flex-shrink-0 mt-1 ${badgeClass}`} />
+        {/* Image or Veg/NonVeg badge */}
+        {item.imageUrl ? (
+          <img
+            src={item.imageUrl}
+            alt={item.name}
+            className="w-16 h-16 rounded-xl object-cover flex-shrink-0 shadow-sm"
+            loading="lazy"
+          />
+        ) : (
+          <div className={`flex-shrink-0 mt-1 ${badgeClass}`} />
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
+            {item.imageUrl && <div className={`${badgeClass} mr-0.5`} />}
             <h3 className="text-foreground font-semibold text-sm">{item.name}</h3>
             {item.is_bestseller && (
               <span className="px-1.5 py-0.5 text-[8px] font-bold maroon-gradient text-primary-foreground rounded-full">BEST</span>
