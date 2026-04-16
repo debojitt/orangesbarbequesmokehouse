@@ -62,12 +62,19 @@ async function callAI(prompt: string, systemPrompt?: string, jsonMode = false): 
   };
   if (jsonMode) gBody.generationConfig.responseMimeType = "application/json";
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(gBody) }
-  );
+  // Try multiple models in case one has exhausted its free tier
+  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+  let res: Response | null = null;
+  for (const model of models) {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(gBody) }
+    );
+    if (res.ok || res.status !== 429) break;
+    console.error(`Model ${model} rate limited, trying next...`);
+  }
 
-  if (!res.ok) {
+  if (!res || !res.ok) {
     const err = await res.text();
     console.error("Gemini error:", res.status, err);
     if (res.status === 429) throw new Error("RATE_LIMITED");
