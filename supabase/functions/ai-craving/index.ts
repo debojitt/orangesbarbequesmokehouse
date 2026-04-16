@@ -200,6 +200,72 @@ Respond with JSON: { "message": "your friendly recommendation text", "suggestion
   }
 });
 
+function smartFallback(query: string, menuItems: any[]) {
+  const q = query.toLowerCase();
+  const keywords = q.split(/\s+/).filter(w => w.length > 2);
+
+  // Extract budget
+  const budgetMatch = q.match(/(?:under|below|within|max|upto|<)\s*₹?\s*(\d+)/);
+  const budget = budgetMatch ? parseInt(budgetMatch[1]) : null;
+
+  // Veg/non-veg preference
+  const wantsVeg = /\bveg\b|vegetarian|paneer|dal|sabzi/.test(q);
+  const wantsNonVeg = /\bnon.?veg|chicken|mutton|fish|egg|meat|prawn/.test(q);
+
+  // Score each item
+  const scored = menuItems.map((item: any) => {
+    let score = 0;
+    const name = item.name.toLowerCase();
+    const desc = (item.description || '').toLowerCase();
+
+    // Keyword matching
+    for (const kw of keywords) {
+      if (name.includes(kw)) score += 3;
+      if (desc.includes(kw)) score += 1;
+    }
+
+    // Budget filter
+    if (budget && item.base_price > budget) score -= 5;
+    if (budget && item.base_price <= budget) score += 1;
+
+    // Veg preference
+    if (wantsVeg && item.is_veg) score += 2;
+    if (wantsNonVeg && !item.is_veg) score += 2;
+    if (wantsVeg && !item.is_veg) score -= 3;
+    if (wantsNonVeg && item.is_veg) score -= 3;
+
+    // Boost bestsellers and chef specials
+    if (item.is_bestseller) score += 1;
+    if (item.is_chef_special) score += 1;
+
+    return { ...item, score };
+  });
+
+  scored.sort((a: any, b: any) => b.score - a.score);
+  const top = scored.slice(0, 3).filter((s: any) => s.score > 0);
+
+  if (top.length === 0) {
+    // Random popular picks
+    const popular = menuItems.filter((i: any) => i.is_bestseller || i.is_chef_special).slice(0, 3);
+    const fallbackItems = popular.length ? popular : menuItems.slice(0, 3);
+    return {
+      message: "I couldn't find an exact match, but here are some popular picks you might enjoy! 🍽️",
+      suggestions: fallbackItems.map((i: any) => ({
+        id: i.id, name: i.name, description: i.description || "A delightful dish from our menu",
+        price: i.base_price, is_veg: i.is_veg,
+      })),
+    };
+  }
+
+  return {
+    message: `Here's what I found for "${query}" — hope you love it! 😋`,
+    suggestions: top.map((i: any) => ({
+      id: i.id, name: i.name, description: i.description || "A delightful dish from our menu",
+      price: i.base_price, is_veg: i.is_veg,
+    })),
+  };
+}
+
 function jsonRes(data: any, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
