@@ -172,26 +172,31 @@ serve(async (req) => {
     const menuRes = await fetch(`${SUPABASE_URL}/rest/v1/menu_items?is_available=eq.true&select=id,name,description,base_price,is_veg,category_id`, { headers });
     const menuItems = await menuRes.json();
 
-    const menuContext = menuItems.map((item: any) =>
-      `- ${item.name} (₹${item.base_price}, ${item.is_veg ? 'Veg' : 'Non-Veg'}): ${item.description || 'No description'}`
-    ).join('\n');
+    // Try AI first, fall back to smart keyword matching
+    try {
+      const menuContext = menuItems.map((item: any) =>
+        `- ${item.name} (₹${item.base_price}, ${item.is_veg ? 'Veg' : 'Non-Veg'}): ${item.description || 'No description'}`
+      ).join('\n');
 
-    const sys = `You are INARA's food recommendation AI. Suggest 1-3 best matching items from the menu based on the customer's craving. Be warm and enthusiastic.
+      const sys = `You are INARA's food recommendation AI. Suggest 1-3 best matching items from the menu based on the customer's craving. Be warm and enthusiastic.
 
 MENU:
 ${menuContext}
 
 Respond with JSON: { "message": "your friendly recommendation text", "suggestions": [{"id": "item_id", "name": "item name", "description": "why this is perfect", "price": number, "is_veg": boolean}] }`;
 
-    const content = await callAI(query, sys, true);
-    let parsed; try { parsed = JSON.parse(content); } catch { parsed = { message: content, suggestions: [] }; }
-    return jsonRes(parsed);
+      const content = await callAI(query, sys, true);
+      let parsed; try { parsed = JSON.parse(content); } catch { parsed = { message: content, suggestions: [] }; }
+      return jsonRes(parsed);
+    } catch (aiError) {
+      console.error("AI unavailable, using smart fallback:", aiError);
+      // Smart keyword-based fallback
+      return jsonRes(smartFallback(query, menuItems));
+    }
 
   } catch (e) {
     console.error("ai-craving error:", e);
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    if (msg === "RATE_LIMITED") return jsonRes({ error: "Rate limited, try again shortly" }, 429);
-    return jsonRes({ error: msg }, 500);
+    return jsonRes({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });
 
