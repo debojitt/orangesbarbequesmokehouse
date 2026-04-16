@@ -63,7 +63,7 @@ async function callAI(prompt: string, systemPrompt?: string, jsonMode = false): 
   if (jsonMode) gBody.generationConfig.responseMimeType = "application/json";
 
   // Try multiple models in case one has exhausted its free tier
-  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+  const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite"];
   let res: Response | null = null;
   for (const model of models) {
     res = await fetch(
