@@ -11,13 +11,13 @@ import { toast } from "sonner";
 const CheckIn = () => {
   const { cardId = "" } = useParams<{ cardId: string }>();
   const nav = useNavigate();
-  const { staff } = useStaffAuth();
+  useStaffAuth();
   const [card, setCard] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-  const [pin, setPin] = useState(staff?.pin || "");
+  const [pin, setPin] = useState("");
 
   useEffect(() => {
     (async () => {
