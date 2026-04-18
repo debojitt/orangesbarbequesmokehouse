@@ -317,6 +317,7 @@ export type Database = {
           expires_at: string
           id: string
           is_active: boolean
+          is_redeemed: boolean
           qr_code: string | null
           visit_count: number
         }
@@ -326,6 +327,7 @@ export type Database = {
           expires_at?: string
           id?: string
           is_active?: boolean
+          is_redeemed?: boolean
           qr_code?: string | null
           visit_count?: number
         }
@@ -335,6 +337,7 @@ export type Database = {
           expires_at?: string
           id?: string
           is_active?: boolean
+          is_redeemed?: boolean
           qr_code?: string | null
           visit_count?: number
         }
