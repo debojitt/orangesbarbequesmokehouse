@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import CartPage from "./pages/Cart";
 import ReviewPage from "./pages/Review";
 import LoyaltyPage from "./pages/Loyalty";
+import CheckIn from "./pages/CheckIn";
 import StaffLogin from "./pages/staff/StaffLogin";
 import StaffLayout from "./pages/staff/StaffLayout";
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -35,6 +36,7 @@ const App = () => (
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/review" element={<ReviewPage />} />
                 <Route path="/loyalty" element={<LoyaltyPage />} />
+                <Route path="/checkin/:cardId" element={<CheckIn />} />
                 <Route path="/staff/login" element={<StaffLogin />} />
                 <Route path="/staff" element={<StaffLayout />}>
                   <Route path="dashboard" element={<StaffDashboard />} />
