@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Plus, Minus } from 'lucide-react';
 import { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
+import { haptic } from '@/lib/haptics';
 
 interface Variant {
   id: string;
@@ -38,16 +39,24 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
 
   const handleAddBase = () => {
     if (hasVariants) {
+      haptic('selection');
       setExpanded(!expanded);
     } else {
+      haptic('medium');
       addItem({ menuItemId: item.id, name: item.name, price: item.discountedPrice ?? item.base_price, isVeg: item.is_veg });
       supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
     }
   };
 
   const handleAddVariant = (v: Variant) => {
+    haptic('medium');
     addItem({ menuItemId: item.id, name: item.name, variantId: v.id, variantName: v.name, price: v.price, isVeg: item.is_veg });
     supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
+  };
+
+  const bumpQty = (variantId: string | undefined, qty: number, isInc: boolean) => {
+    haptic(isInc ? 'light' : 'selection');
+    updateQuantity(item.id, variantId, qty);
   };
 
   return (
@@ -105,19 +114,19 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
               {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           ) : cartItem ? (
-            <div className="flex items-center gap-0.5 border border-primary rounded-full overflow-hidden bg-white shadow-sm">
-              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity - 1)} className="p-1.5 text-primary hover:bg-primary/5 active:scale-95">
+            <div className="flex items-center gap-0.5 border border-primary rounded-full overflow-hidden bg-white shadow-sm ios-spring-in">
+              <button onClick={() => bumpQty(undefined, cartItem.quantity - 1, false)} className="p-1.5 text-primary hover:bg-primary/5 ios-press">
                 <Minus className="w-3 h-3" />
               </button>
-              <span className="px-2 text-xs font-bold text-foreground min-w-[20px] text-center">{cartItem.quantity}</span>
-              <button onClick={() => updateQuantity(item.id, undefined, cartItem.quantity + 1)} className="p-1.5 text-primary hover:bg-primary/5 active:scale-95">
+              <span key={cartItem.quantity} className="px-2 text-xs font-bold text-foreground min-w-[20px] text-center" style={{ animation: 'countPop 0.25s ease-out' }}>{cartItem.quantity}</span>
+              <button onClick={() => bumpQty(undefined, cartItem.quantity + 1, true)} className="p-1.5 text-primary hover:bg-primary/5 ios-press">
                 <Plus className="w-3 h-3" />
               </button>
             </div>
           ) : (
             <button
               onClick={handleAddBase}
-              className="flex-shrink-0 w-9 h-9 rounded-full maroon-gradient text-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg active:scale-95"
+              className="flex-shrink-0 w-9 h-9 rounded-full maroon-gradient text-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg ios-press premium-shine"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -128,7 +137,7 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
       </div>
 
       {expanded && hasVariants && (
-        <div className="border-t border-border bg-secondary/30 px-4 py-2 space-y-1" style={{ animation: 'slideIn 0.2s ease-out' }}>
+        <div className="border-t border-border bg-secondary/30 px-4 py-2 space-y-1 ios-fade-up">
           {item.variants.map((v) => {
             const cv = cartVariantItems.find(ci => ci.variantId === v.id);
             return (
@@ -142,19 +151,19 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
                 <div className="flex items-center gap-2">
                   <span className="text-primary font-bold text-sm">₹{v.price}</span>
                   {cv ? (
-                    <div className="flex items-center gap-0.5 border border-primary rounded-full overflow-hidden bg-white">
-                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity - 1)} className="p-1 text-primary hover:bg-primary/5 active:scale-95">
+                    <div className="flex items-center gap-0.5 border border-primary rounded-full overflow-hidden bg-white ios-spring-in">
+                      <button onClick={() => bumpQty(v.id, cv.quantity - 1, false)} className="p-1 text-primary hover:bg-primary/5 ios-press">
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="px-1.5 text-xs font-bold text-foreground">{cv.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, v.id, cv.quantity + 1)} className="p-1 text-primary hover:bg-primary/5 active:scale-95">
+                      <span key={cv.quantity} className="px-1.5 text-xs font-bold text-foreground" style={{ animation: 'countPop 0.25s ease-out' }}>{cv.quantity}</span>
+                      <button onClick={() => bumpQty(v.id, cv.quantity + 1, true)} className="p-1 text-primary hover:bg-primary/5 ios-press">
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => handleAddVariant(v)}
-                      className="px-3 py-1 text-xs font-semibold maroon-gradient text-primary-foreground rounded-full active:scale-95"
+                      className="px-3 py-1 text-xs font-semibold maroon-gradient text-primary-foreground rounded-full ios-press premium-shine"
                     >
                       ADD
                     </button>
