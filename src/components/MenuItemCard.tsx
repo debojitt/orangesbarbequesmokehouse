@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Plus, Minus } from 'lucide-react';
 import { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
+import { haptic } from '@/lib/haptics';
 
 interface Variant {
   id: string;
@@ -38,16 +39,24 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
 
   const handleAddBase = () => {
     if (hasVariants) {
+      haptic('selection');
       setExpanded(!expanded);
     } else {
+      haptic('medium');
       addItem({ menuItemId: item.id, name: item.name, price: item.discountedPrice ?? item.base_price, isVeg: item.is_veg });
       supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
     }
   };
 
   const handleAddVariant = (v: Variant) => {
+    haptic('medium');
     addItem({ menuItemId: item.id, name: item.name, variantId: v.id, variantName: v.name, price: v.price, isVeg: item.is_veg });
     supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
+  };
+
+  const bumpQty = (variantId: string | undefined, qty: number, isInc: boolean) => {
+    haptic(isInc ? 'light' : 'selection');
+    updateQuantity(item.id, variantId, qty);
   };
 
   return (
