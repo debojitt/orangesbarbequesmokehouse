@@ -1,17 +1,21 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useStaffAuth } from '@/contexts/StaffAuthContext';
-import { Plus, Search, UserPlus, RotateCcw, Eye, MessageSquare } from 'lucide-react';
+import { Search, UserPlus, RotateCcw, Eye, MessageSquare, QrCode } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import QrScanner from '@/components/QrScanner';
 
 const StaffLoyalty = () => {
   const queryClient = useQueryClient();
   const { staff } = useStaffAuth();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [showVisits, setShowVisits] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
   const [newGuest, setNewGuest] = useState({ name: '', phone: '' });
 
   const { data: customers = [] } = useQuery({
@@ -100,13 +104,33 @@ const StaffLoyalty = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg text-primary">Loyalty Management</h2>
-        <button
-          onClick={() => setShowAddGuest(true)}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium gold-gradient text-primary-foreground"
-        >
-          <UserPlus className="w-3 h-3" /> Add Guest
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowScanner(true)}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary/30 text-primary rounded-lg ios-press"
+          >
+            <QrCode className="w-3 h-3" /> Scan QR
+          </button>
+          <button
+            onClick={() => setShowAddGuest(true)}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium maroon-gradient text-primary-foreground rounded-lg ios-press"
+          >
+            <UserPlus className="w-3 h-3" /> Add Guest
+          </button>
+        </div>
       </div>
+
+      {showScanner && (
+        <QrScanner
+          onScan={(text) => {
+            setShowScanner(false);
+            // Accept either raw card UUID or a /checkin/:id URL
+            const id = text.includes('/checkin/') ? text.split('/checkin/')[1].split(/[?#]/)[0] : text.trim();
+            if (id) navigate(`/checkin/${id}`);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
       {/* Search */}
       <div className="relative">
