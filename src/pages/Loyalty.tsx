@@ -10,34 +10,9 @@ import confetti from "@/lib/confetti";
 import { loyaltyApi } from "@/lib/loyalty";
 import { haptic } from "@/lib/haptics";
 import { toast } from "sonner";
-import RouletteWheel from "@/components/RouletteWheel";
-
-const ROULETTE_SEGMENTS = [
-  "20% OFF",
-  "Better Luck",
-  "FREE Dessert",
-  "Better Luck",
-  "FREE Mocktail",
-  "Better Luck",
-  "FREE Starter",
-  "Better Luck",
-];
+import OfferRoulette from "@/components/OfferRoulette";
 
 const MYSTERY_TEXT = "A surprise reward — depends on your luck! 🍀";
-
-const findSegmentIndex = (target: string) => {
-  const t = target.toLowerCase();
-  if (t.includes("better luck")) {
-    // pick a random "Better Luck" segment for variety
-    const idxs = ROULETTE_SEGMENTS.map((s, i) => s.toLowerCase().includes("better luck") ? i : -1).filter(i => i >= 0);
-    return idxs[Math.floor(Math.random() * idxs.length)];
-  }
-  if (t.includes("20%")) return 0;
-  if (t.includes("dessert")) return 2;
-  if (t.includes("mocktail")) return 4;
-  if (t.includes("starter")) return 6;
-  return 0;
-};
 
 const LoyaltyPage = () => {
   const qc = useQueryClient();
@@ -45,10 +20,6 @@ const LoyaltyPage = () => {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const [showRoulette, setShowRoulette] = useState(false);
-  const [rouletteTarget, setRouletteTarget] = useState(0);
-  const [rouletteSpinning, setRouletteSpinning] = useState(false);
-  const [rouletteResult, setRouletteResult] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [claiming, setClaiming] = useState<number | null>(null);
 
@@ -128,38 +99,6 @@ const LoyaltyPage = () => {
     return !visitByNumber.has(visitNum);
   }, [card, visitByNumber]);
 
-  const startRoulette = useCallback((cfg: any) => {
-    if (!card) return;
-    haptic("medium");
-    const target = cfg.reward_description || "Better Luck Next Time";
-    const idx = findSegmentIndex(target);
-    setRouletteTarget(idx);
-    setRouletteResult(null);
-    setRouletteSpinning(true);
-    setShowRoulette(true);
-    // Persist the visit row right when wheel starts so state is consistent
-    loyaltyApi.claimReward(card.id, cfg.visit_number)
-      .then(() => {
-        qc.invalidateQueries({ queryKey: ["loyalty-visits"] });
-        qc.invalidateQueries({ queryKey: ["loyalty-card"] });
-      })
-      .catch(() => {});
-    // Pre-set the result label for after-spin display
-    setTimeout(() => setRouletteResult(target), 5400);
-  }, [card, qc]);
-
-  const onWheelSettled = useCallback(() => {
-    setRouletteSpinning(false);
-    const target = rewardsConfig.find(r => findSegmentIndex(r.reward_description || "") === rouletteTarget);
-    const desc = target?.reward_description || "";
-    if (!desc.includes("Better Luck")) {
-      confetti();
-      haptic("success");
-    } else {
-      haptic("warning");
-    }
-  }, [rouletteTarget, rewardsConfig]);
-
   const handleClaimGuaranteed = async (cfg: any) => {
     if (!card) return;
     setClaiming(cfg.visit_number);
@@ -176,6 +115,22 @@ const LoyaltyPage = () => {
       setClaiming(null);
     }
   };
+
+  const handleClaimMystery = useCallback(async (visitNumber: number) => {
+    if (!card) return;
+    setClaiming(visitNumber);
+    try {
+      await loyaltyApi.claimReward(card.id, visitNumber);
+      await qc.invalidateQueries({ queryKey: ["loyalty-card"] });
+      await qc.invalidateQueries({ queryKey: ["loyalty-visits"] });
+      toast.success("Mystery reward claimed!");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not claim reward");
+      throw e;
+    } finally {
+      setClaiming(null);
+    }
+  }, [card, qc]);
 
   const daysLeft = useMemo(() => {
     if (!card) return null;
