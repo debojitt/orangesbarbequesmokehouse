@@ -340,19 +340,23 @@ const LoyaltyPage = () => {
                       </p>
 
                       {claimable && (
-                        <button
-                          onClick={() => isRoulette ? startRoulette(cfg) : handleClaimGuaranteed(cfg)}
-                          disabled={claiming === cfg.visit_number}
-                          className="mt-3 w-full py-2.5 maroon-gradient text-primary-foreground text-sm font-semibold rounded-xl ios-press premium-shine flex items-center justify-center gap-2 disabled:opacity-60"
-                        >
-                          {claiming === cfg.visit_number ? (
-                            "Claiming..."
-                          ) : isRoulette ? (
-                            <><Gift className="w-4 h-4" /> Try Your Luck</>
-                          ) : (
-                            <><Gift className="w-4 h-4" /> Claim Reward</>
-                          )}
-                        </button>
+                        isRoulette ? (
+                          <div className="mt-4">
+                            <OfferRoulette
+                              visitNumber={cfg.visit_number}
+                              isClaimed={claimed}
+                              onClaim={() => handleClaimMystery(cfg.visit_number)}
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleClaimGuaranteed(cfg)}
+                            disabled={claiming === cfg.visit_number}
+                            className="mt-3 w-full py-2.5 maroon-gradient text-primary-foreground text-sm font-semibold rounded-xl ios-press premium-shine flex items-center justify-center gap-2 disabled:opacity-60"
+                          >
+                            {claiming === cfg.visit_number ? "Claiming..." : <><Gift className="w-4 h-4" /> Claim Reward</>}
+                          </button>
+                        )
                       )}
                     </div>
                   </div>
@@ -389,36 +393,6 @@ const LoyaltyPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Roulette Wheel */}
-      <Dialog open={showRoulette} onOpenChange={(open) => !rouletteSpinning && setShowRoulette(open)}>
-        <DialogContent className="ios-card border-border max-w-sm p-6">
-          <h2 className="font-display text-xl text-primary text-center mb-1">🍀 Your Lucky Spin</h2>
-          <p className="text-xs text-muted-foreground text-center mb-5">
-            {rouletteSpinning ? "Spinning..." : "Result locked in!"}
-          </p>
-
-          <RouletteWheel
-            segments={ROULETTE_SEGMENTS}
-            targetIndex={rouletteTarget}
-            spinning={rouletteSpinning}
-            onSettled={onWheelSettled}
-          />
-
-          {rouletteResult && !rouletteSpinning && (
-            <div className="mt-5 text-center ios-spring-in">
-              <p className="font-display text-xl text-primary">
-                {rouletteResult.includes("Better Luck") ? "😅" : "🎉"} {rouletteResult}
-              </p>
-              <button
-                onClick={() => { setShowRoulette(false); haptic("light"); }}
-                className="mt-4 px-6 py-2.5 maroon-gradient text-primary-foreground font-semibold rounded-xl ios-press"
-              >
-                Awesome
-              </button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
