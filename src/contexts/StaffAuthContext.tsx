@@ -20,7 +20,6 @@ const StaffAuthContext = createContext<StaffAuthContextType | undefined>(undefin
 
 export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [staff, setStaff] = useState<StaffUser | null>(null);
-  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('inara_staff');
@@ -38,34 +37,21 @@ export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (error || !data) return false;
     const user: StaffUser = { id: data.id, name: data.name, role: data.role };
     setStaff(user);
-    setIsLocked(false);
     localStorage.setItem('inara_staff', JSON.stringify(user));
     return true;
   };
 
   const logout = () => {
     setStaff(null);
-    setIsLocked(false);
     localStorage.removeItem('inara_staff');
   };
 
-  const lock = () => setIsLocked(true);
-
-  const unlock = async (pin: string): Promise<boolean> => {
-    if (!staff) return false;
-    const { data } = await supabase
-      .from('staff')
-      .select('pin')
-      .eq('id', staff.id)
-      .eq('pin', pin)
-      .maybeSingle();
-    if (!data) return false;
-    setIsLocked(false);
-    return true;
-  };
+  // Lock disabled per product decision — staff stays logged in until manual logout.
+  const lock = () => {};
+  const unlock = async () => true;
 
   return (
-    <StaffAuthContext.Provider value={{ staff, isLocked, login, logout, lock, unlock }}>
+    <StaffAuthContext.Provider value={{ staff, isLocked: false, login, logout, lock, unlock }}>
       {children}
     </StaffAuthContext.Provider>
   );
