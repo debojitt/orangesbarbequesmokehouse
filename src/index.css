@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -48,6 +48,12 @@
     --maroon: 0 60% 30%;
     --maroon-light: 0 50% 40%;
     --maroon-dark: 0 65% 22%;
+    --premium-card: 38 45% 96%;
+    --premium-soft: 36 35% 92%;
+    --premium-border: 36 35% 82%;
+    --premium-gold: 39 72% 55%;
+    --premium-gold-light: 42 88% 78%;
+    --premium-ink: 8 24% 22%;
     --glass: 0 0% 100% / 0.75;
     --glass-border: 0 0% 0% / 0.06;
     --glass-strong: 0 0% 100% / 0.85;
@@ -175,6 +181,16 @@
     transform: translateX(120%);
   }
 
+  .offer-winning-tile {
+    background: linear-gradient(135deg, hsl(var(--premium-gold-light)), hsl(var(--premium-gold)));
+    border-color: hsl(var(--premium-gold));
+    box-shadow: 0 12px 34px hsl(var(--premium-gold) / 0.28);
+  }
+
+  .offer-landing-bounce {
+    animation: offerLandingBounce 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   .shimmer-effect {
     background: linear-gradient(90deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.06) 50%, rgba(0,0,0,0.02) 100%);
     background-size: 200% 100%;
@@ -232,6 +248,12 @@
 @keyframes countPop {
   0% { transform: scale(1); }
   40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+@keyframes offerLandingBounce {
+  0% { transform: scale(0.96); }
+  60% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
 
