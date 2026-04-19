@@ -185,7 +185,7 @@ const OfferRoulette = ({ visitNumber, onClaim, isClaimed }: OfferRouletteProps) 
                 isDimmed && "opacity-70 saturate-75",
               )}
             >
-              {isWinner && !isBetterLuck && phase !== "spinning" && (
+              {isWinner && !isBetterLuck && (
                 <div className="mb-2 inline-flex items-center rounded-full border border-premium-gold/60 bg-background/85 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary shadow-sm">
                   🎉 You Won!
                 </div>

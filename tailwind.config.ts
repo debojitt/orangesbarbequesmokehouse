@@ -26,6 +26,14 @@ export default {
           light: "hsl(var(--maroon-light))",
           dark: "hsl(var(--maroon-dark))",
         },
+        premium: {
+          card: "hsl(var(--premium-card))",
+          soft: "hsl(var(--premium-soft))",
+          border: "hsl(var(--premium-border))",
+          gold: "hsl(var(--premium-gold))",
+          "gold-light": "hsl(var(--premium-gold-light))",
+          ink: "hsl(var(--premium-ink))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
