@@ -1,28 +1,43 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomer } from "@/contexts/CustomerContext";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Gift, LogOut, Sparkles, Clock, Phone, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Gift, LogOut, Sparkles, Clock, Phone, Check, Lock as LockIcon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
 import confetti from "@/lib/confetti";
 import { loyaltyApi } from "@/lib/loyalty";
 import { haptic } from "@/lib/haptics";
 import { toast } from "sonner";
+import RouletteWheel from "@/components/RouletteWheel";
 
-const ROULETTE_DECOY = [
-  "20% OFF (up to ₹300)",
-  "FREE Dessert of the Day",
-  "Better Luck Next Time",
+const ROULETTE_SEGMENTS = [
+  "20% OFF",
+  "Better Luck",
+  "FREE Dessert",
+  "Better Luck",
   "FREE Mocktail",
-  "10% OFF",
-  "FREE MEAL FOR TWO",
-  "Free Starter",
-  "Better Luck Next Time",
+  "Better Luck",
+  "FREE Starter",
+  "Better Luck",
 ];
 
-const MYSTERY_TEXT = "Win a surprise reward — depends on your luck! 🍀";
+const MYSTERY_TEXT = "A surprise reward — depends on your luck! 🍀";
+
+const findSegmentIndex = (target: string) => {
+  const t = target.toLowerCase();
+  if (t.includes("better luck")) {
+    // pick a random "Better Luck" segment for variety
+    const idxs = ROULETTE_SEGMENTS.map((s, i) => s.toLowerCase().includes("better luck") ? i : -1).filter(i => i >= 0);
+    return idxs[Math.floor(Math.random() * idxs.length)];
+  }
+  if (t.includes("20%")) return 0;
+  if (t.includes("dessert")) return 2;
+  if (t.includes("mocktail")) return 4;
+  if (t.includes("starter")) return 6;
+  return 0;
+};
 
 const LoyaltyPage = () => {
   const qc = useQueryClient();
@@ -31,13 +46,13 @@ const LoyaltyPage = () => {
   const [name, setName] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [showRoulette, setShowRoulette] = useState(false);
+  const [rouletteTarget, setRouletteTarget] = useState(0);
+  const [rouletteSpinning, setRouletteSpinning] = useState(false);
   const [rouletteResult, setRouletteResult] = useState<string | null>(null);
-  const [rouletteRunning, setRouletteRunning] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [showQr, setShowQr] = useState(false);
-  const [claiming, setClaiming] = useState(false);
+  const [claiming, setClaiming] = useState<number | null>(null);
 
-  const { data: card, refetch: refetchCard } = useQuery({
+  const { data: card } = useQuery({
     queryKey: ["loyalty-card", customer?.id],
     queryFn: async () => {
       if (!customer) return null;
@@ -52,7 +67,7 @@ const LoyaltyPage = () => {
       return data;
     },
     enabled: !!customer,
-    refetchInterval: 8000,
+    refetchInterval: 6000,
   });
 
   const { data: visits = [] } = useQuery({
@@ -91,7 +106,7 @@ const LoyaltyPage = () => {
       await setCustomer(res.customer.phone, res.customer.name);
       qc.invalidateQueries({ queryKey: ["loyalty-card"] });
       haptic("success");
-      toast.success(card ? "Welcome back!" : "Loyalty card created 🎉");
+      toast.success("Welcome to INARA Loyalty! 🎉");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Login failed");
     } finally {
@@ -99,103 +114,77 @@ const LoyaltyPage = () => {
     }
   };
 
-  const currentMilestone = useMemo(
-    () => rewardsConfig.find((r) => r.visit_number === card?.visit_count),
-    [rewardsConfig, card]
-  );
+  const visitByNumber = useMemo(() => {
+    const m = new Map<number, any>();
+    visits.forEach(v => m.set(v.visit_number, v));
+    return m;
+  }, [visits]);
 
-  const milestoneVisitRow = useMemo(
-    () => visits.find((v) => v.visit_number === card?.visit_count),
-    [visits, card]
-  );
+  // A milestone is CLAIMABLE if: card has reached this visit_number AND no visit row exists yet for it (for visit > 1).
+  const isClaimable = useCallback((visitNum: number) => {
+    if (!card) return false;
+    if (visitNum === 1) return false;
+    if (card.visit_count < visitNum) return false;
+    return !visitByNumber.has(visitNum);
+  }, [card, visitByNumber]);
 
-  const isRouletteMilestone =
-    !!card && currentMilestone?.reward_type === "roulette" && card.visit_count > 0;
-  const isGuaranteedMilestone =
-    !!card && currentMilestone?.reward_type === "guaranteed" && card.visit_count > 1;
-
-  const showTryLuck = isRouletteMilestone && !milestoneVisitRow && !card?.is_redeemed;
-  const showClaim = isGuaranteedMilestone && !card?.is_redeemed;
-  const showAlreadyClaimed = !!card && card.is_redeemed && !!currentMilestone;
-
-  const startRoulette = useCallback(() => {
-    if (!card || !currentMilestone || currentMilestone.reward_type !== "roulette") return;
-    haptic("medium");
-    setRouletteRunning(true);
-    setRouletteResult(null);
-    setShowRoulette(true);
-
-    const target = currentMilestone.reward_description || "Better Luck Next Time";
-    let targetIndex = ROULETTE_DECOY.findIndex((o) =>
-      o.toLowerCase().includes(target.toLowerCase().slice(0, 12))
-    );
-    if (targetIndex === -1) {
-      targetIndex = target.includes("Better Luck") ? 2 : 0;
-    }
-
-    let currentIdx = 0;
-    let iterations = 0;
-    const totalIterations = 32 + targetIndex;
-
-    const tick = () => {
-      currentIdx = (currentIdx + 1) % ROULETTE_DECOY.length;
-      setHighlightedIndex(currentIdx);
-      iterations++;
-
-      const delay = iterations < 20 ? 60 : iterations < 28 ? 110 : 180;
-
-      if (iterations >= totalIterations) {
-        setHighlightedIndex(targetIndex);
-        setRouletteResult(target);
-        setRouletteRunning(false);
-        if (!target.includes("Better Luck")) {
-          confetti();
-          haptic("success");
-        } else {
-          haptic("warning");
-        }
-        // Persist the visit row + mark redeemed
-        loyaltyApi
-          .claimReward(card.id, card.visit_count)
-          .then(() => {
-            qc.invalidateQueries({ queryKey: ["loyalty-visits"] });
-            qc.invalidateQueries({ queryKey: ["loyalty-card"] });
-          })
-          .catch(() => {});
-        return;
-      }
-      setTimeout(tick, delay);
-    };
-    setTimeout(tick, 60);
-  }, [card, currentMilestone, qc]);
-
-  const handleClaim = async () => {
+  const startRoulette = useCallback((cfg: any) => {
     if (!card) return;
-    setClaiming(true);
+    haptic("medium");
+    const target = cfg.reward_description || "Better Luck Next Time";
+    const idx = findSegmentIndex(target);
+    setRouletteTarget(idx);
+    setRouletteResult(null);
+    setRouletteSpinning(true);
+    setShowRoulette(true);
+    // Persist the visit row right when wheel starts so state is consistent
+    loyaltyApi.claimReward(card.id, cfg.visit_number)
+      .then(() => {
+        qc.invalidateQueries({ queryKey: ["loyalty-visits"] });
+        qc.invalidateQueries({ queryKey: ["loyalty-card"] });
+      })
+      .catch(() => {});
+    // Pre-set the result label for after-spin display
+    setTimeout(() => setRouletteResult(target), 5400);
+  }, [card, qc]);
+
+  const onWheelSettled = useCallback(() => {
+    setRouletteSpinning(false);
+    const target = rewardsConfig.find(r => findSegmentIndex(r.reward_description || "") === rouletteTarget);
+    const desc = target?.reward_description || "";
+    if (!desc.includes("Better Luck")) {
+      confetti();
+      haptic("success");
+    } else {
+      haptic("warning");
+    }
+  }, [rouletteTarget, rewardsConfig]);
+
+  const handleClaimGuaranteed = async (cfg: any) => {
+    if (!card) return;
+    setClaiming(cfg.visit_number);
     try {
-      await loyaltyApi.claimReward(card.id, card.visit_count);
+      await loyaltyApi.claimReward(card.id, cfg.visit_number);
       confetti();
       haptic("success");
       toast.success("Reward claimed! Show this to staff.");
-      qc.invalidateQueries({ queryKey: ["loyalty-card"] });
-      qc.invalidateQueries({ queryKey: ["loyalty-visits"] });
+      await qc.invalidateQueries({ queryKey: ["loyalty-card"] });
+      await qc.invalidateQueries({ queryKey: ["loyalty-visits"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not claim");
     } finally {
-      setClaiming(false);
+      setClaiming(null);
     }
   };
 
   const daysLeft = useMemo(() => {
     if (!card) return null;
     const ms = new Date(card.expires_at).getTime() - Date.now();
-    if (ms <= 0) return 0;
-    const d = Math.floor(ms / 86400000);
-    const h = Math.floor((ms % 86400000) / 3600000);
-    return { d, h };
+    if (ms <= 0) return { d: 0, h: 0 };
+    return { d: Math.floor(ms / 86400000), h: Math.floor((ms % 86400000) / 3600000) };
   }, [card]);
 
-  // Phone-only login screen
+  // ───────── Login screen ─────────
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -218,7 +207,7 @@ const LoyaltyPage = () => {
               </div>
             </div>
 
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Find your card</p>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Find or create your card</p>
             <input
               type="text"
               value={name}
@@ -241,22 +230,12 @@ const LoyaltyPage = () => {
               disabled={loginLoading}
               className="w-full py-3.5 maroon-gradient text-primary-foreground font-semibold rounded-xl ios-press premium-shine disabled:opacity-60"
             >
-              {loginLoading ? "Loading..." : "Look Up My Card"}
+              {loginLoading ? "Loading..." : "Get My Loyalty Card"}
             </button>
 
-            <div className="flex items-center gap-3 my-5 text-[11px] text-muted-foreground uppercase tracking-wider">
-              <div className="flex-1 h-px bg-border" />OR<div className="flex-1 h-px bg-border" />
-            </div>
-
-            <Link
-              to="/staff/login"
-              className="flex items-center justify-between px-4 py-3 bg-secondary rounded-xl border border-border ios-press"
-            >
-              <span className="flex items-center gap-2 text-sm text-foreground font-medium">
-                <ShieldCheck className="w-4 h-4 text-primary" /> Staff Portal
-              </span>
-              <span className="text-muted-foreground">›</span>
-            </Link>
+            <p className="text-[11px] text-muted-foreground text-center mt-5 leading-relaxed">
+              Earn rewards over 7 visits within 2 months. Your phone number is your card — no password needed.
+            </p>
           </div>
 
           <p className="text-[11px] text-muted-foreground mt-6 text-center">
@@ -267,6 +246,7 @@ const LoyaltyPage = () => {
     );
   }
 
+  // ───────── Main view ─────────
   return (
     <div className="min-h-screen bg-background pb-12">
       <header className="sticky top-0 z-30 glass-panel-strong">
@@ -323,13 +303,11 @@ const LoyaltyPage = () => {
           </div>
         </div>
 
-        {/* Progress + journey */}
+        {/* Progress */}
         {card && (
           <div className="ios-card p-5">
             <div className="flex items-baseline justify-between mb-2">
-              <p className="text-sm font-semibold text-foreground">
-                {card.visit_count} of 7 visits
-              </p>
+              <p className="text-sm font-semibold text-foreground">{card.visit_count} of 7 visits</p>
               <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-foreground font-medium">
                 {Math.round((card.visit_count / 7) * 100)}%
               </span>
@@ -342,17 +320,10 @@ const LoyaltyPage = () => {
             </div>
 
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Your Journey</p>
-            <div className="grid grid-cols-7 gap-1.5 mb-4">
+            <div className="grid grid-cols-7 gap-1.5">
               {[1, 2, 3, 4, 5, 6, 7].map((step) => {
                 const completed = card.visit_count >= step;
                 const isCurrent = card.visit_count === step;
-                const cfg = rewardsConfig.find((r) => r.visit_number === step);
-                const label =
-                  step === 1
-                    ? "Start"
-                    : cfg?.reward_type === "guaranteed"
-                    ? step === 7 ? "Free Meal" : "Combo"
-                    : cfg?.reward_description?.includes("Better Luck") ? "Try Luck" : "Try Luck";
                 return (
                   <div key={step} className="flex flex-col items-center gap-1">
                     <div
@@ -364,11 +335,8 @@ const LoyaltyPage = () => {
                           : "bg-secondary text-muted-foreground border border-border"
                       }`}
                     >
-                      {completed && step < (card.visit_count) ? "✓" : step}
+                      {completed ? "✓" : step}
                     </div>
-                    <span className="text-[8px] text-muted-foreground text-center leading-tight max-w-[40px]">
-                      {label}
-                    </span>
                   </div>
                 );
               })}
@@ -376,69 +344,66 @@ const LoyaltyPage = () => {
           </div>
         )}
 
-        {/* Action area */}
-        {showTryLuck && (
-          <button
-            onClick={startRoulette}
-            className="w-full py-4 maroon-gradient text-primary-foreground font-display text-lg rounded-2xl premium-shine ios-press flex items-center justify-center gap-2 shadow-lg"
-          >
-            <Gift className="w-5 h-5" /> Try Your Luck! 🍀
-          </button>
-        )}
-
-        {showClaim && (
-          <div className="ios-card p-5 text-center">
-            <p className="text-[11px] uppercase tracking-wider text-primary font-semibold mb-1">Reward Unlocked</p>
-            <p className="font-display text-lg text-foreground mb-3">
-              🎉 {currentMilestone?.reward_description}
-            </p>
-            <button
-              onClick={handleClaim}
-              disabled={claiming}
-              className="w-full py-3 maroon-gradient text-primary-foreground font-semibold rounded-xl ios-press premium-shine disabled:opacity-60"
-            >
-              {claiming ? "Claiming..." : "Claim Reward"}
-            </button>
-            <p className="text-[10px] text-muted-foreground mt-2">Show staff after tapping claim</p>
-          </div>
-        )}
-
-        {showAlreadyClaimed && (
-          <div className="ios-card p-5 text-center opacity-70">
-            <p className="text-[11px] uppercase tracking-wider text-primary font-semibold mb-1">Claimed</p>
-            <p className="font-display text-base text-foreground">
-              ✓ {milestoneVisitRow ? rewardsConfig.find(r => r.visit_number === card?.visit_count)?.reward_description : "Reward redeemed"}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-1">Visit again to unlock the next reward</p>
-          </div>
-        )}
-
-        {/* Reward milestones */}
+        {/* Reward Milestones — vertical premium list */}
         {card && (
-          <div className="ios-card p-5">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Reward Milestones</p>
-            <div className="space-y-3">
-              {rewardsConfig.filter((c) => c.visit_number > 1).map((c) => {
-                const visitRow = visits.find((v) => v.visit_number === c.visit_number);
-                const isPast = card.visit_count > c.visit_number;
-                const isCurrent = card.visit_count === c.visit_number;
-                const reveal = isPast || (isCurrent && card.is_redeemed) || (isCurrent && c.reward_type === "guaranteed");
-                const icon = c.reward_type === "guaranteed" ? "🎁" : "🍀";
-                return (
-                  <div key={c.visit_number} className={`flex items-start gap-3 ${isPast ? "opacity-60" : ""}`}>
-                    <span className="text-lg leading-none mt-0.5">{icon}</span>
+          <div className="space-y-2.5">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground px-1">Reward Milestones</p>
+            {rewardsConfig.filter(c => c.visit_number > 1).map((cfg) => {
+              const visitRow = visitByNumber.get(cfg.visit_number);
+              const claimable = isClaimable(cfg.visit_number);
+              const claimed = !!visitRow;
+              const locked = card.visit_count < cfg.visit_number;
+              const isRoulette = cfg.reward_type === "roulette";
+              const icon = isRoulette ? "🍀" : "🎁";
+
+              return (
+                <div
+                  key={cfg.visit_number}
+                  className={`ios-card p-4 transition-all ${
+                    claimable ? "ring-2 ring-primary/40 shadow-lg" : ""
+                  } ${locked ? "opacity-60" : ""}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl flex-shrink-0 ${
+                      claimed ? "bg-primary/10" : claimable ? "maroon-gradient" : "bg-secondary"
+                    }`}>
+                      {claimed ? <Check className="w-5 h-5 text-primary" /> : locked ? <LockIcon className="w-4 h-4 text-muted-foreground" /> : <span>{icon}</span>}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground">
-                        Visit {c.visit_number}: {c.reward_type === "guaranteed" ? c.reward_description?.split("(")[0].trim() : "Try Your Luck"}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground">Visit {cfg.visit_number}</p>
+                        {claimed && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">Claimed</span>}
+                        {claimable && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full maroon-gradient text-primary-foreground">Ready</span>}
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-snug mt-1 break-words">
+                        {claimed
+                          ? cfg.reward_description
+                          : claimable
+                          ? (isRoulette ? MYSTERY_TEXT : cfg.reward_description)
+                          : (isRoulette ? MYSTERY_TEXT : `Unlock at visit ${cfg.visit_number}: ${cfg.reward_description}`)
+                        }
                       </p>
-                      <p className="text-xs text-muted-foreground leading-snug">
-                        {reveal ? (visitRow ? "✓ " : "") + (c.reward_description) : MYSTERY_TEXT}
-                      </p>
+
+                      {claimable && (
+                        <button
+                          onClick={() => isRoulette ? startRoulette(cfg) : handleClaimGuaranteed(cfg)}
+                          disabled={claiming === cfg.visit_number}
+                          className="mt-3 w-full py-2.5 maroon-gradient text-primary-foreground text-sm font-semibold rounded-xl ios-press premium-shine flex items-center justify-center gap-2 disabled:opacity-60"
+                        >
+                          {claiming === cfg.visit_number ? (
+                            "Claiming..."
+                          ) : isRoulette ? (
+                            <><Gift className="w-4 h-4" /> Try Your Luck</>
+                          ) : (
+                            <><Gift className="w-4 h-4" /> Claim Reward</>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -469,32 +434,28 @@ const LoyaltyPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Roulette */}
-      <Dialog open={showRoulette} onOpenChange={(open) => !rouletteRunning && setShowRoulette(open)}>
-        <DialogContent className="ios-card border-border max-w-sm p-5">
-          <h2 className="font-display text-xl text-primary text-center mb-1">🍀 Try Your Luck!</h2>
-          <p className="text-xs text-muted-foreground text-center mb-4">Spinning your reward...</p>
-          <div className="space-y-1.5 max-h-[280px] overflow-hidden">
-            {ROULETTE_DECOY.map((offer, idx) => (
-              <div
-                key={idx}
-                className={`px-4 py-3 text-sm font-medium rounded-xl transition-all duration-150 ${
-                  highlightedIndex === idx
-                    ? "maroon-gradient text-primary-foreground scale-[1.04] shadow-md"
-                    : "bg-secondary text-muted-foreground"
-                }`}
-              >
-                {offer}
-              </div>
-            ))}
-          </div>
-          {rouletteResult && !rouletteRunning && (
-            <div className="mt-5 text-center">
+      {/* Roulette Wheel */}
+      <Dialog open={showRoulette} onOpenChange={(open) => !rouletteSpinning && setShowRoulette(open)}>
+        <DialogContent className="ios-card border-border max-w-sm p-6">
+          <h2 className="font-display text-xl text-primary text-center mb-1">🍀 Your Lucky Spin</h2>
+          <p className="text-xs text-muted-foreground text-center mb-5">
+            {rouletteSpinning ? "Spinning..." : "Result locked in!"}
+          </p>
+
+          <RouletteWheel
+            segments={ROULETTE_SEGMENTS}
+            targetIndex={rouletteTarget}
+            spinning={rouletteSpinning}
+            onSettled={onWheelSettled}
+          />
+
+          {rouletteResult && !rouletteSpinning && (
+            <div className="mt-5 text-center ios-spring-in">
               <p className="font-display text-xl text-primary">
                 {rouletteResult.includes("Better Luck") ? "😅" : "🎉"} {rouletteResult}
               </p>
               <button
-                onClick={() => { setShowRoulette(false); refetchCard(); }}
+                onClick={() => { setShowRoulette(false); haptic("light"); }}
                 className="mt-4 px-6 py-2.5 maroon-gradient text-primary-foreground font-semibold rounded-xl ios-press"
               >
                 Awesome
