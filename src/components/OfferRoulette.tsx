@@ -216,9 +216,7 @@ const OfferRoulette = ({ visitNumber, onClaim, isClaimed }: OfferRouletteProps) 
             ) : (
               <>
                 <p className="font-display text-2xl text-primary">{winningTile.winningLabel}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {phase === "claimed" ? "Saved to your loyalty card." : "Locked in and ready to claim."}
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{phase === "claimed" ? "Saved to your loyalty card." : "Locked in and ready to claim."}</p>
               </>
             )}
           </div>
