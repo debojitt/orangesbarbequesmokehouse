@@ -136,11 +136,11 @@ serve(async (req) => {
       const prompt = `A beautiful, appetizing food illustration of "${item_name}", ${is_veg ? 'vegetarian' : 'non-vegetarian'} Indian dish, top-down view on a clean plate, professional food photography style, warm lighting, on a solid white background`;
       const base64Data = await callGeminiImage(prompt);
       const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      const fileName = `items/${item_id}.png`;
+      const fileName = `items/${item_id}.jpg`;
 
       await fetch(`${SUPABASE_URL}/storage/v1/object/gallery/${fileName}`, {
         method: "POST",
-        headers: { ...headers, "Content-Type": "image/png", "x-upsert": "true" },
+        headers: { ...headers, "Content-Type": "image/jpeg", "x-upsert": "true" },
         body: imageBytes,
       });
 
