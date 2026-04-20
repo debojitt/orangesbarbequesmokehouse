@@ -86,27 +86,36 @@ async function callAI(prompt: string, systemPrompt?: string, jsonMode = false): 
 }
 
 async function callGeminiImage(prompt: string) {
-  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_API_KEY}`,
-    {
+  // Primary: Lovable AI Gateway (uses daily Lovable credits)
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (LOVABLE_API_KEY) {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
       }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (url) {
+        const base64 = url.split(",")[1] || url;
+        return base64;
+      }
+    } else {
+      const errText = await res.text();
+      console.error("Lovable AI image error:", res.status, errText);
+      if (res.status === 402) throw new Error("PAYMENT_REQUIRED");
+      if (res.status === 429) throw new Error("RATE_LIMITED");
     }
-  );
-
-  if (!res.ok) throw new Error(`Image generation failed: ${res.status}`);
-  const data = await res.json();
-  for (const part of data.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) return part.inlineData.data;
   }
-  throw new Error("No image generated");
+  throw new Error("Image generation failed");
 }
 
 serve(async (req) => {
