@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { Link } from 'react-router-dom';
-import { Minus, Plus, Trash2, ArrowLeft, Tag, X, Users, Sparkles } from 'lucide-react';
+import { Minus, Plus, Trash2, ArrowLeft, Tag, X, Users, Sparkles, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { haptic } from '@/lib/haptics';
 
 const CartPage = () => {
-  const { items, updateQuantity, removeItem, clearCart, approximateTotal } = useCart();
+  const { items, updateQuantity, removeItem, clearCart, subtotal, approximateTotal } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [applying, setApplying] = useState(false);
   const [splitCount, setSplitCount] = useState(1);
+
+  const SERVICE_THRESHOLD = 800;
+  const SERVICE_FEE = 150;
+  const serviceFee = subtotal > SERVICE_THRESHOLD ? SERVICE_FEE : 0;
+  const amountToFreeService = serviceFee === 0 ? Math.max(0, SERVICE_THRESHOLD - subtotal + 1) : 0;
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -101,13 +106,23 @@ const CartPage = () => {
 
       <div className="px-4 py-4 space-y-3 stagger">
         {items.map((item) => (
-          <div key={`${item.menuItemId}-${item.variantId || 'base'}`} className="ios-card p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className={item.isVeg ? 'veg-badge' : 'nonveg-badge'} />
-              <div className="min-w-0">
+          <div key={`${item.menuItemId}-${item.variantId || 'base'}`} className="ios-card p-4 flex items-center justify-between gap-3">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className={`${item.isVeg ? 'veg-badge' : 'nonveg-badge'} mt-1 flex-shrink-0`} />
+              <div className="min-w-0 flex-1">
                 <p className="text-foreground text-sm font-medium truncate">{item.name}</p>
-                {item.variantName && <p className="text-muted-foreground text-xs">{item.variantName}</p>}
-                <p className="text-primary text-sm font-bold">₹{item.price}</p>
+                {item.variantName && (
+                  <p className="text-muted-foreground text-xs mt-0.5">
+                    <span className="font-medium text-foreground/70">{item.variantName}</span>
+                    {item.servesCount && item.servesCount > 1 && (
+                      <span> · Serves {item.servesCount}</span>
+                    )}
+                  </p>
+                )}
+                {item.description && (
+                  <p className="text-muted-foreground/70 text-[11px] line-clamp-1 mt-0.5">{item.description}</p>
+                )}
+                <p className="text-primary text-sm font-bold mt-1">₹{item.price}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -236,6 +251,24 @@ const CartPage = () => {
       <div className="mx-4 mt-3 ios-card p-4 ios-fade-up">
         <h2 className="font-display text-lg text-foreground mb-3">Approximate Bill</h2>
         <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="text-foreground">₹{subtotal}</span>
+          </div>
+          {serviceFee > 0 ? (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                Service & taxes
+                <span className="text-[9px] text-muted-foreground/70">(orders above ₹{SERVICE_THRESHOLD})</span>
+              </span>
+              <span className="text-foreground">+₹{SERVICE_FEE}</span>
+            </div>
+          ) : amountToFreeService > 0 && amountToFreeService <= 300 ? (
+            <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground bg-secondary/60 rounded-lg px-2.5 py-1.5">
+              <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              <span>Add ₹{amountToFreeService} more and a ₹{SERVICE_FEE} service charge will apply (kicks in above ₹{SERVICE_THRESHOLD}).</span>
+            </div>
+          ) : null}
           {appliedCoupon && (
             <div className="flex justify-between text-sm">
               <span className="text-green-600">Coupon Discount</span>
