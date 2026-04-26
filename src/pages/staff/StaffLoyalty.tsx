@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useStaffAuth } from '@/contexts/StaffAuthContext';
-import { Search, UserPlus, RotateCcw, Eye, MessageSquare, QrCode } from 'lucide-react';
+import { Search, UserPlus, RotateCcw, Eye, MessageSquare, QrCode, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import QrScanner from '@/components/QrScanner';
+import { loyaltyApi } from '@/lib/loyalty';
 
 const StaffLoyalty = () => {
   const queryClient = useQueryClient();
@@ -17,6 +18,10 @@ const StaffLoyalty = () => {
   const [showVisits, setShowVisits] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [newGuest, setNewGuest] = useState({ name: '', phone: '' });
+  const [overrideCard, setOverrideCard] = useState<any | null>(null);
+  const [overridePin, setOverridePin] = useState('');
+  const [overridePrizeId, setOverridePrizeId] = useState<string>('');
+  const [savingOverride, setSavingOverride] = useState(false);
 
   const { data: customers = [] } = useQuery({
     queryKey: ['loyalty-customers', search],
@@ -44,6 +49,18 @@ const StaffLoyalty = () => {
     queryKey: ['rewards-config'],
     queryFn: async () => {
       const { data } = await supabase.from('loyalty_rewards_config').select('*').order('visit_number');
+      return data || [];
+    },
+  });
+
+  const { data: roulettePrizes = [] } = useQuery({
+    queryKey: ['roulette-prizes-active'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('roulette_prizes')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
       return data || [];
     },
   });
@@ -98,6 +115,32 @@ const StaffLoyalty = () => {
   const sendWhatsApp = (phone: string, name: string) => {
     const message = encodeURIComponent(`Hi ${name}! We miss you at INARA. Come visit us and enjoy your loyalty rewards! 🍽️`);
     window.open(`https://wa.me/91${phone.replace(/\D/g, '')}?text=${message}`, '_blank');
+  };
+
+  const openOverride = (card: any) => {
+    setOverrideCard(card);
+    setOverridePin('');
+    setOverridePrizeId(card?.next_roulette_prize_id || '');
+  };
+
+  const saveOverride = async () => {
+    if (!overrideCard) return;
+    if (!overridePin.trim()) { toast.error('Enter staff PIN'); return; }
+    setSavingOverride(true);
+    try {
+      await loyaltyApi.setRouletteOverride(
+        overridePin.trim(),
+        overrideCard.id,
+        overridePrizeId || null,
+      );
+      toast.success(overridePrizeId ? 'Next roulette reward locked in 🎯' : 'Override cleared');
+      setOverrideCard(null);
+      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to set override');
+    } finally {
+      setSavingOverride(false);
+    }
   };
 
   return (
@@ -186,6 +229,13 @@ const StaffLoyalty = () => {
                     >
                       <RotateCcw className="w-3 h-3 inline mr-1" />Reset
                     </button>
+                    <button
+                      onClick={() => openOverride(card)}
+                      className={`px-2 py-1 text-[10px] font-medium border ${card.next_roulette_prize_id ? 'border-primary text-primary' : 'border-border text-foreground hover:border-primary'}`}
+                    >
+                      <Sparkles className="w-3 h-3 inline mr-1" />
+                      {card.next_roulette_prize_id ? 'Override Set' : 'Pick Next Reward'}
+                    </button>
                   </>
                 )}
                 <button
@@ -229,6 +279,48 @@ const StaffLoyalty = () => {
               </div>
             ))}
             {visitHistory.length === 0 && <p className="text-muted-foreground text-sm text-center py-4">No visits recorded yet</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Override Next Roulette Reward Dialog */}
+      <Dialog open={!!overrideCard} onOpenChange={(o) => !o && setOverrideCard(null)}>
+        <DialogContent className="glass-panel-strong border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-primary flex items-center gap-2">
+              <Sparkles className="w-4 h-4" /> Pick Next Roulette Reward
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-3">
+            <p className="text-xs text-muted-foreground">
+              The wheel will land on this prize the next time the guest spins. Override is consumed after one use.
+            </p>
+            <input
+              type="password"
+              value={overridePin}
+              onChange={(e) => setOverridePin(e.target.value)}
+              placeholder="Staff PIN *"
+              className="w-full px-3 py-2 bg-secondary text-foreground border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+            />
+            <select
+              value={overridePrizeId}
+              onChange={(e) => setOverridePrizeId(e.target.value)}
+              className="w-full px-3 py-2 bg-secondary text-foreground border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+            >
+              <option value="">— Clear override (random/default) —</option>
+              {roulettePrizes.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.is_better_luck ? '💀 ' : '🎁 '}{p.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={saveOverride}
+              disabled={savingOverride}
+              className="w-full py-2 maroon-gradient text-primary-foreground font-medium rounded-lg disabled:opacity-50"
+            >
+              {savingOverride ? 'Saving…' : 'Lock In Next Reward'}
+            </button>
           </div>
         </DialogContent>
       </Dialog>
