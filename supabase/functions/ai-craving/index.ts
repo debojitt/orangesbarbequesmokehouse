@@ -75,6 +75,7 @@ async function callAI(prompt: string, systemPrompt?: string, jsonMode = false): 
   }
 
   if (!res || !res.ok) {
+    if (!res) throw new Error("Gemini: no response");
     const err = await res.text();
     console.error("Gemini error:", res.status, err);
     if (res.status === 429) throw new Error("RATE_LIMITED");

@@ -41,4 +41,19 @@ export const loyaltyApi = {
     });
     return !!data?.valid;
   },
+
+  setRouletteOverride: async (pin: string, card_id: string, prize_id: string | null) => {
+    const { data, error } = await supabase.functions.invoke(FN, {
+      body: { action: "set_roulette_override", pin, card_id, prize_id },
+    });
+    if (error || data?.error) throw new Error(data?.error || error?.message || "Failed");
+    return data;
+  },
+
+  getNextRoulette: async (card_id: string) => {
+    const { data } = await supabase.functions.invoke(FN, {
+      body: { action: "get_next_roulette", card_id },
+    });
+    return (data?.prize_id as string | null) ?? null;
+  },
 };

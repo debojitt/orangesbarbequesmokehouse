@@ -156,16 +156,61 @@ Deno.serve(async (req) => {
             .eq("visit_number", visit_number)
             .maybeSingle();
           if (cfg) {
+            // Check for per-card override (roulette only)
+            let resultLabel = cfg.rigged_result;
+            if (cfg.reward_type === "roulette") {
+              const { data: cardRow } = await supabase
+                .from("loyalty_cards")
+                .select("next_roulette_prize_id")
+                .eq("id", card_id)
+                .maybeSingle();
+              if (cardRow?.next_roulette_prize_id) {
+                const { data: prize } = await supabase
+                  .from("roulette_prizes")
+                  .select("winning_label")
+                  .eq("id", cardRow.next_roulette_prize_id)
+                  .maybeSingle();
+                if (prize?.winning_label) resultLabel = prize.winning_label;
+                // Consume the override after use
+                await supabase
+                  .from("loyalty_cards")
+                  .update({ next_roulette_prize_id: null })
+                  .eq("id", card_id);
+              }
+            }
             await supabase.from("loyalty_visits").insert({
               loyalty_card_id: card_id,
               visit_number,
               reward_type: cfg.reward_type,
-              reward_result: cfg.rigged_result,
+              reward_result: resultLabel,
             });
           }
         }
       }
       return json({ success: true });
+    }
+
+    if (action === "set_roulette_override") {
+      const { pin, card_id, prize_id } = body as { pin: string; card_id: string; prize_id: string | null };
+      assertPin(pin);
+      if (!card_id) return json({ error: "card_id required" }, 400);
+      await supabase
+        .from("loyalty_cards")
+        .update({ next_roulette_prize_id: prize_id || null })
+        .eq("id", card_id);
+      return json({ success: true });
+    }
+
+    if (action === "get_next_roulette") {
+      // Public read: returns only the prize_id (used by customer wheel to rig the spin)
+      const { card_id } = body as { card_id: string };
+      if (!card_id) return json({ error: "card_id required" }, 400);
+      const { data: cardRow } = await supabase
+        .from("loyalty_cards")
+        .select("next_roulette_prize_id")
+        .eq("id", card_id)
+        .maybeSingle();
+      return json({ prize_id: cardRow?.next_roulette_prize_id || null });
     }
 
     if (action === "restart_card") {

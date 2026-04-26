@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
+import StaffRoulettePrizes from '@/components/StaffRoulettePrizes';
 
 type DiscountType = Database['public']['Enums']['discount_type'];
 type DiscountTarget = Database['public']['Enums']['discount_target'];
@@ -174,6 +175,9 @@ const StaffOffers = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Roulette prize editor */}
+      <StaffRoulettePrizes />
     </div>
   );
 };

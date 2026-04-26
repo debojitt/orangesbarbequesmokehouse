@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Edit, Trash2, Eye, EyeOff, ChefHat, Flame, Wand2, Loader2, Image } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, ChefHat, Flame, Wand2, Loader2, Image, ImageOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
@@ -101,6 +101,43 @@ const StaffMenu = () => {
       await supabase.from('menu_items').update({ is_available: available }).eq('id', id);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] }),
+  });
+
+  const toggleImageHidden = useMutation({
+    mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) => {
+      await supabase.from('menu_items').update({ image_hidden: hidden }).eq('id', id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] });
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] });
+    },
+  });
+
+  // Global hide-all-images toggle
+  const { data: globalHideSetting } = useQuery({
+    queryKey: ['app-setting', 'images_hidden_global'],
+    queryFn: async () => {
+      const { data } = await supabase.from('app_settings').select('*').eq('key', 'images_hidden_global').maybeSingle();
+      return data;
+    },
+  });
+
+  const globalImagesHidden = !!(globalHideSetting?.value as any)?.value;
+
+  const toggleGlobalImages = useMutation({
+    mutationFn: async (hidden: boolean) => {
+      await supabase.from('app_settings').upsert({
+        key: 'images_hidden_global',
+        value: { value: hidden } as any,
+        updated_at: new Date().toISOString(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['app-setting', 'images_hidden_global'] });
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] });
+      queryClient.invalidateQueries({ queryKey: ['global-images-hidden'] });
+      toast.success('Image visibility updated');
+    },
   });
 
   const saveCategory = useMutation({
@@ -270,6 +307,14 @@ const StaffMenu = () => {
           <h2 className="font-display text-lg text-primary">Menu Items ({filteredMenuItems.length})</h2>
           <div className="flex gap-2 flex-wrap">
             <button
+              onClick={() => toggleGlobalImages.mutate(!globalImagesHidden)}
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full border ${globalImagesHidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
+              title="Show or hide ALL menu images at once"
+            >
+              {globalImagesHidden ? <ImageOff className="w-3 h-3" /> : <Image className="w-3 h-3" />}
+              {globalImagesHidden ? 'Images: OFF' : 'Images: ON'}
+            </button>
+            <button
               onClick={handleGenerateAllDescriptions}
               disabled={generatingDescriptions}
               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full disabled:opacity-50"
@@ -322,9 +367,17 @@ const StaffMenu = () => {
                   </div>
                   <span className="text-xs text-muted-foreground">₹{item.base_price}</span>
                   {!item.description && <span className="text-[10px] text-amber-500 ml-2">No description</span>}
+                  {item.image_hidden && <span className="text-[10px] text-muted-foreground ml-2">• Image hidden</span>}
                 </div>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => toggleImageHidden.mutate({ id: item.id, hidden: !item.image_hidden })}
+                  className="p-1.5 text-muted-foreground hover:text-primary"
+                  title={item.image_hidden ? 'Show image' : 'Hide image'}
+                >
+                  {item.image_hidden ? <ImageOff className="w-4 h-4" /> : <Image className="w-4 h-4" />}
+                </button>
                 <button onClick={() => toggleAvailability.mutate({ id: item.id, available: !item.is_available })} className="p-1.5 text-muted-foreground hover:text-primary">
                   {item.is_available ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                 </button>
