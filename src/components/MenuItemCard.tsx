@@ -44,7 +44,14 @@ const MenuItemCard = ({ item }: { item: MenuItem }) => {
       setDetailOpen(true);
     } else {
       haptic('medium');
-      addItem({ menuItemId: item.id, name: item.name, price: item.discountedPrice ?? item.base_price, isVeg: item.is_veg });
+      addItem({
+        menuItemId: item.id,
+        name: item.name,
+        price: item.discountedPrice ?? item.base_price,
+        isVeg: item.is_veg,
+        description: item.description,
+        servesCount: null,
+      });
       supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
     }
   };

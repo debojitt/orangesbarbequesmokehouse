@@ -44,13 +44,29 @@ const MenuItemDetailModal = ({ item, open, onClose }: Props) => {
 
   const handleAddBase = () => {
     haptic('medium');
-    addItem({ menuItemId: item.id, name: item.name, price: item.discountedPrice ?? item.base_price, isVeg: item.is_veg });
+    addItem({
+      menuItemId: item.id,
+      name: item.name,
+      price: item.discountedPrice ?? item.base_price,
+      isVeg: item.is_veg,
+      description: item.description,
+      servesCount: null,
+    });
     supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
   };
 
   const handleAddVariant = (v: Variant) => {
     haptic('medium');
-    addItem({ menuItemId: item.id, name: item.name, variantId: v.id, variantName: v.name, price: v.price, isVeg: item.is_veg });
+    addItem({
+      menuItemId: item.id,
+      name: item.name,
+      variantId: v.id,
+      variantName: v.name,
+      price: v.price,
+      isVeg: item.is_veg,
+      description: item.description,
+      servesCount: v.serves_count,
+    });
     supabase.from('item_selections').insert({ menu_item_id: item.id }).then(() => {});
   };
 
