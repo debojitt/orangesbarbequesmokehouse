@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 import confetti from "@/lib/confetti";
 import { haptic } from "@/lib/haptics";
@@ -6,49 +8,17 @@ import { cn } from "@/lib/utils";
 
 interface OfferRouletteProps {
   visitNumber: number;
+  cardId?: string;
   onClaim: () => Promise<void> | void;
   isClaimed: boolean;
 }
 
-type OfferKey = "percent_off" | "dessert" | "mocktail" | "cash_off" | "better_luck" | "starter";
 type SpinPhase = "idle" | "spinning" | "ready" | "claiming" | "claimed";
 
-const OFFER_TILES: Array<{ key: OfferKey; label: string; winningLabel: string }> = [
-  {
-    key: "percent_off",
-    label: "20% OFF your bill",
-    winningLabel: "20% OFF your bill (up to ₹300)",
-  },
-  {
-    key: "dessert",
-    label: "FREE Dessert of the Day",
-    winningLabel: "FREE Dessert of the Day",
-  },
-  {
-    key: "mocktail",
-    label: "FREE Mocktail",
-    winningLabel: "FREE Mocktail",
-  },
-  {
-    key: "cash_off",
-    label: "₹100 OFF",
-    winningLabel: "₹100 OFF",
-  },
-  {
-    key: "better_luck",
-    label: "Better Luck Next Time",
-    winningLabel: "Better Luck Next Time",
-  },
-  {
-    key: "starter",
-    label: "FREE Starter",
-    winningLabel: "FREE Starter",
-  },
-];
-
-const RIGGED_RESULTS: Record<number, OfferKey> = {
-  2: "percent_off",
-  3: "dessert",
+// Fallback rigged outcomes by visit (used when no per-card override is set)
+const DEFAULT_RIGGED_BY_VISIT: Record<number, "winner" | "better_luck"> = {
+  2: "winner",
+  3: "winner",
   4: "better_luck",
   6: "better_luck",
 };
@@ -59,19 +29,58 @@ const STEP_DELAYS = [
   ...Array.from({ length: 2 }, () => 350),
 ];
 
-const OfferRoulette = ({ visitNumber, onClaim, isClaimed }: OfferRouletteProps) => {
+const OfferRoulette = ({ visitNumber, cardId, onClaim, isClaimed }: OfferRouletteProps) => {
   const timeoutsRef = useRef<number[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [phase, setPhase] = useState<SpinPhase>(isClaimed ? "claimed" : "idle");
   const [landed, setLanded] = useState(false);
 
-  const winningKey = RIGGED_RESULTS[visitNumber] ?? "better_luck";
-  const winningIndex = useMemo(
-    () => OFFER_TILES.findIndex((tile) => tile.key === winningKey),
-    [winningKey],
-  );
-  const winningTile = OFFER_TILES[winningIndex] ?? OFFER_TILES[4];
-  const isBetterLuck = winningTile.key === "better_luck";
+  // Load active prize tiles from DB
+  const { data: tiles = [] } = useQuery({
+    queryKey: ["roulette-prizes-customer"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("roulette_prizes")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order");
+      return data || [];
+    },
+  });
+
+  // Per-card override (staff-set: forces wheel to land on a specific tile)
+  const { data: overridePrizeId } = useQuery({
+    queryKey: ["card-roulette-override", cardId],
+    queryFn: async () => {
+      if (!cardId) return null;
+      const { data } = await supabase
+        .from("loyalty_cards")
+        .select("next_roulette_prize_id")
+        .eq("id", cardId)
+        .maybeSingle();
+      return (data?.next_roulette_prize_id as string | null) ?? null;
+    },
+    enabled: !!cardId,
+  });
+
+  const winningIndex = useMemo(() => {
+    if (tiles.length === 0) return 0;
+    // 1) Per-card override takes top priority
+    if (overridePrizeId) {
+      const idx = tiles.findIndex((t: any) => t.id === overridePrizeId);
+      if (idx >= 0) return idx;
+    }
+    // 2) Default rigged behavior by visit number
+    const wantBetterLuck = DEFAULT_RIGGED_BY_VISIT[visitNumber] === "better_luck";
+    const candidates = tiles
+      .map((t: any, i: number) => ({ t, i }))
+      .filter(({ t }) => !!t.is_better_luck === wantBetterLuck);
+    const pool = candidates.length > 0 ? candidates : tiles.map((t: any, i: number) => ({ t, i }));
+    return pool[Math.floor(Math.random() * pool.length)].i;
+  }, [tiles, overridePrizeId, visitNumber]);
+
+  const winningTile = tiles[winningIndex];
+  const isBetterLuck = !!winningTile?.is_better_luck;
 
   useEffect(() => {
     if (isClaimed) {
@@ -98,12 +107,13 @@ const OfferRoulette = ({ visitNumber, onClaim, isClaimed }: OfferRouletteProps) 
 
   const startSpin = () => {
     if (phase === "spinning" || phase === "claiming" || phase === "claimed") return;
+    if (tiles.length === 0) return;
 
     clearSpinTimers();
     haptic("medium");
 
     const totalSteps = STEP_DELAYS.length;
-    const startIndex = (winningIndex - totalSteps + OFFER_TILES.length * 20) % OFFER_TILES.length;
+    const startIndex = (winningIndex - totalSteps + tiles.length * 20) % tiles.length;
 
     setPhase("spinning");
     setLanded(false);
@@ -127,7 +137,7 @@ const OfferRoulette = ({ visitNumber, onClaim, isClaimed }: OfferRouletteProps) 
       }
 
       const timeout = window.setTimeout(() => {
-        currentIndex = (currentIndex + 1) % OFFER_TILES.length;
+        currentIndex = (currentIndex + 1) % tiles.length;
         setActiveIndex(currentIndex);
         runStep(step + 1);
       }, STEP_DELAYS[step]);
@@ -166,14 +176,14 @@ const OfferRoulette = ({ visitNumber, onClaim, isClaimed }: OfferRouletteProps) 
       </div>
 
       <div className="space-y-2.5">
-        {OFFER_TILES.map((tile, index) => {
+        {tiles.map((tile: any, index: number) => {
           const isActive = index === activeIndex && phase === "spinning";
           const isWinner = index === winningIndex && (phase === "ready" || phase === "claiming" || phase === "claimed");
           const isDimmed = phase === "claimed" && isWinner;
 
           return (
             <div
-              key={tile.key}
+              key={tile.id}
               className={cn(
                 "relative overflow-hidden rounded-2xl border px-4 py-3 text-center transition-all duration-300 ease-out",
                 "transform-gpu",
@@ -215,7 +225,7 @@ const OfferRoulette = ({ visitNumber, onClaim, isClaimed }: OfferRouletteProps) 
               </>
             ) : (
               <>
-                <p className="font-display text-2xl text-primary">{winningTile.winningLabel}</p>
+                <p className="font-display text-2xl text-primary">{winningTile?.winning_label}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{phase === "claimed" ? "Saved to your loyalty card." : "Locked in and ready to claim."}</p>
               </>
             )}
@@ -225,7 +235,7 @@ const OfferRoulette = ({ visitNumber, onClaim, isClaimed }: OfferRouletteProps) 
         <button
           type="button"
           onClick={phase === "ready" ? handleClaim : startSpin}
-          disabled={phase === "spinning" || phase === "claiming" || phase === "claimed"}
+          disabled={phase === "spinning" || phase === "claiming" || phase === "claimed" || tiles.length === 0}
           className="w-full rounded-2xl border border-primary/15 maroon-gradient px-5 py-3.5 font-display text-base tracking-[0.08em] text-[hsl(var(--premium-gold-light))] shadow-[0_14px_32px_hsl(var(--primary)/0.22)] transition-all duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-65"
         >
           {phase === "spinning"
