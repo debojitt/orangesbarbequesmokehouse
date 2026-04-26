@@ -46,6 +46,24 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -318,6 +336,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_redeemed: boolean
+          next_roulette_prize_id: string | null
           qr_code: string | null
           visit_count: number
         }
@@ -328,6 +347,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_redeemed?: boolean
+          next_roulette_prize_id?: string | null
           qr_code?: string | null
           visit_count?: number
         }
@@ -338,6 +358,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_redeemed?: boolean
+          next_roulette_prize_id?: string | null
           qr_code?: string | null
           visit_count?: number
         }
@@ -347,6 +368,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_cards_next_roulette_prize_id_fkey"
+            columns: ["next_roulette_prize_id"]
+            isOneToOne: false
+            referencedRelation: "roulette_prizes"
             referencedColumns: ["id"]
           },
         ]
@@ -430,6 +458,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_hidden: boolean
           is_available: boolean
           is_bestseller: boolean
           is_chef_special: boolean
@@ -444,6 +473,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_hidden?: boolean
           is_available?: boolean
           is_bestseller?: boolean
           is_chef_special?: boolean
@@ -458,6 +488,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_hidden?: boolean
           is_available?: boolean
           is_bestseller?: boolean
           is_chef_special?: boolean
@@ -475,6 +506,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      roulette_prizes: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          is_better_luck: boolean
+          label: string
+          winning_label: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_better_luck?: boolean
+          label: string
+          winning_label: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_better_luck?: boolean
+          label?: string
+          winning_label?: string
+        }
+        Relationships: []
       }
       staff: {
         Row: {
