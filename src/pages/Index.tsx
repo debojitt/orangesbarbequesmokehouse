@@ -32,6 +32,12 @@ const Index = () => {
       const { data: variants } = await supabase.from('item_variants').select('*');
       const { data: discounts } = await supabase.from('discounts').select('*').eq('is_active', true);
       const { data: galleryImages } = await supabase.from('gallery_images').select('menu_item_id, image_url');
+      const { data: globalSetting } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'images_hidden_global')
+        .maybeSingle();
+      const globalHidden = !!(globalSetting?.value as any)?.value;
 
       const imageMap = new Map<string, string>();
       (galleryImages || []).forEach((img) => {
@@ -53,7 +59,13 @@ const Index = () => {
             discountedPrice = Math.round(item.base_price * (1 - d.value / 100));
           }
         }
-        return { ...item, variants: itemVariants, discountedPrice, imageUrl: imageMap.get(item.id) || null };
+        const showImage = !globalHidden && !(item as any).image_hidden;
+        return {
+          ...item,
+          variants: itemVariants,
+          discountedPrice,
+          imageUrl: showImage ? (imageMap.get(item.id) || null) : null,
+        };
       });
     },
   });
