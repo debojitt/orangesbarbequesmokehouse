@@ -5,6 +5,8 @@ export interface CartItem {
   name: string;
   variantId?: string;
   variantName?: string;
+  servesCount?: number | null;
+  description?: string | null;
   price: number;
   quantity: number;
   isVeg: boolean;
