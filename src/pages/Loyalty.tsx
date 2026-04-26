@@ -344,6 +344,7 @@ const LoyaltyPage = () => {
                           <div className="mt-4">
                             <OfferRoulette
                               visitNumber={cfg.visit_number}
+                              cardId={card.id}
                               isClaimed={claimed}
                               onClaim={() => handleClaimMystery(cfg.visit_number)}
                             />
