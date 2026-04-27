@@ -66,6 +66,23 @@ const LoyaltyPage = () => {
     },
   });
 
+  // If staff has set a per-card roulette override, fetch the prize so we can
+  // reveal what the guest will actually win on their next mystery spin.
+  const { data: overridePrize } = useQuery({
+    queryKey: ["loyalty-override-prize", (card as any)?.next_roulette_prize_id],
+    queryFn: async () => {
+      const id = (card as any)?.next_roulette_prize_id;
+      if (!id) return null;
+      const { data } = await supabase
+        .from("roulette_prizes")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!(card as any)?.next_roulette_prize_id,
+  });
+
   const handleLogin = async () => {
     if (!phone.trim() || !name.trim()) {
       toast.error("Enter your name & phone");
@@ -310,17 +327,28 @@ const LoyaltyPage = () => {
               const locked = card.visit_count < cfg.visit_number;
               const isRoulette = cfg.reward_type === "roulette";
               const icon = isRoulette ? "🍀" : "🎁";
+              const showOverrideHint =
+                isRoulette &&
+                claimable &&
+                !!overridePrize &&
+                !overridePrize.is_better_luck;
 
               return (
                 <div
                   key={cfg.visit_number}
-                  className={`ios-card p-4 transition-all ${
-                    claimable ? "ring-2 ring-primary/40 shadow-lg" : ""
+                  className={`glass-panel rounded-2xl p-4 transition-all ${
+                    claimable
+                      ? "ring-2 ring-primary/40 shadow-[0_18px_48px_hsl(var(--primary)/0.18)]"
+                      : "shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
                   } ${locked ? "opacity-60" : ""}`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl flex-shrink-0 ${
-                      claimed ? "bg-primary/10" : claimable ? "maroon-gradient" : "bg-secondary"
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl flex-shrink-0 backdrop-blur-md ${
+                      claimed
+                        ? "bg-primary/10"
+                        : claimable
+                        ? "maroon-gradient shadow-[0_6px_18px_hsl(var(--primary)/0.35)]"
+                        : "bg-white/40 border border-white/60"
                     }`}>
                       {claimed ? <Check className="w-5 h-5 text-primary" /> : locked ? <LockIcon className="w-4 h-4 text-muted-foreground" /> : <span>{icon}</span>}
                     </div>
@@ -329,12 +357,21 @@ const LoyaltyPage = () => {
                         <p className="text-sm font-semibold text-foreground">Visit {cfg.visit_number}</p>
                         {claimed && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">Claimed</span>}
                         {claimable && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full maroon-gradient text-primary-foreground">Ready</span>}
+                        {showOverrideHint && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30">
+                            ✨ Reserved
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground leading-snug mt-1 break-words">
                         {claimed
-                          ? cfg.reward_description
+                          ? (visitRow?.reward_result || cfg.reward_description)
                           : claimable
-                          ? (isRoulette ? MYSTERY_TEXT : cfg.reward_description)
+                          ? (isRoulette
+                              ? (showOverrideHint
+                                  ? `🎁 Staff has reserved a special reward for you: ${overridePrize?.winning_label}`
+                                  : MYSTERY_TEXT)
+                              : cfg.reward_description)
                           : (isRoulette ? MYSTERY_TEXT : `Unlock at visit ${cfg.visit_number}: ${cfg.reward_description}`)
                         }
                       </p>
