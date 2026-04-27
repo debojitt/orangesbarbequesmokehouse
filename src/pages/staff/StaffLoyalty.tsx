@@ -22,6 +22,9 @@ const StaffLoyalty = () => {
   const [overridePin, setOverridePin] = useState('');
   const [overridePrizeId, setOverridePrizeId] = useState<string>('');
   const [savingOverride, setSavingOverride] = useState(false);
+  const [visitPinPrompt, setVisitPinPrompt] = useState<any | null>(null);
+  const [visitPin, setVisitPin] = useState('');
+  const [recordingVisit, setRecordingVisit] = useState(false);
 
   const { data: customers = [] } = useQuery({
     queryKey: ['loyalty-customers', search],
@@ -83,23 +86,23 @@ const StaffLoyalty = () => {
     },
   });
 
-  const recordVisit = useMutation({
-    mutationFn: async (card: any) => {
-      const newCount = card.visit_count + 1;
-      if (newCount > 7) {
-        // Reset cycle
-        await supabase.from('loyalty_cards').update({ visit_count: 1 }).eq('id', card.id);
-      } else {
-        await supabase.from('loyalty_cards').update({ visit_count: newCount }).eq('id', card.id);
-      }
-      // Update last visit
-      await supabase.from('customers').update({ last_visit: new Date().toISOString() }).eq('id', card.customer_id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
+  // Record visit via secure edge function so reward rows + roulette overrides persist correctly.
+  const submitVisit = async () => {
+    if (!visitPinPrompt) return;
+    if (!visitPin.trim()) { toast.error('Enter staff PIN'); return; }
+    setRecordingVisit(true);
+    try {
+      await loyaltyApi.recordVisit(visitPin.trim(), visitPinPrompt.id);
       toast.success('Visit recorded!');
-    },
-  });
+      setVisitPinPrompt(null);
+      setVisitPin('');
+      queryClient.invalidateQueries({ queryKey: ['loyalty-customers'] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to record visit');
+    } finally {
+      setRecordingVisit(false);
+    }
+  };
 
   const restartCard = useMutation({
     mutationFn: async (cardId: string) => {
@@ -212,7 +215,7 @@ const StaffLoyalty = () => {
                 {card && (
                   <>
                     <button
-                      onClick={() => recordVisit.mutate(card)}
+                      onClick={() => { setVisitPinPrompt(card); setVisitPin(''); }}
                       className="px-2 py-1 text-[10px] font-medium gold-gradient text-primary-foreground"
                     >
                       +Visit
@@ -320,6 +323,36 @@ const StaffLoyalty = () => {
               className="w-full py-2 maroon-gradient text-primary-foreground font-medium rounded-lg disabled:opacity-50"
             >
               {savingOverride ? 'Saving…' : 'Lock In Next Reward'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Record Visit PIN Dialog */}
+      <Dialog open={!!visitPinPrompt} onOpenChange={(o) => !o && setVisitPinPrompt(null)}>
+        <DialogContent className="glass-panel-strong border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-primary">Record Visit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-3">
+            <p className="text-xs text-muted-foreground">
+              Confirm staff PIN to record a visit. Any roulette override locked in will be applied automatically on the guest's next claim.
+            </p>
+            <input
+              type="password"
+              autoFocus
+              value={visitPin}
+              onChange={(e) => setVisitPin(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitVisit()}
+              placeholder="Staff PIN *"
+              className="w-full px-3 py-2 bg-secondary text-foreground border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+            />
+            <button
+              onClick={submitVisit}
+              disabled={recordingVisit}
+              className="w-full py-2 maroon-gradient text-primary-foreground font-medium rounded-lg disabled:opacity-50"
+            >
+              {recordingVisit ? 'Recording…' : 'Confirm Visit'}
             </button>
           </div>
         </DialogContent>

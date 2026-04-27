@@ -106,13 +106,13 @@ const CartPage = () => {
 
       <div className="px-4 py-4 space-y-3 stagger">
         {items.map((item) => (
-          <div key={`${item.menuItemId}-${item.variantId || 'base'}`} className="ios-card p-4 flex items-center justify-between gap-3">
+          <div key={`${item.menuItemId}-${item.variantId || 'base'}`} className="ios-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <div className={`${item.isVeg ? 'veg-badge' : 'nonveg-badge'} mt-1 flex-shrink-0`} />
               <div className="min-w-0 flex-1">
-                <p className="text-foreground text-sm font-medium truncate">{item.name}</p>
+                <p className="text-foreground text-sm font-semibold leading-snug break-words">{item.name}</p>
                 {item.variantName && (
-                  <p className="text-muted-foreground text-xs mt-0.5">
+                  <p className="text-muted-foreground text-xs mt-1 break-words">
                     <span className="font-medium text-foreground/70">{item.variantName}</span>
                     {item.servesCount && item.servesCount > 1 && (
                       <span> · Serves {item.servesCount}</span>
@@ -120,12 +120,12 @@ const CartPage = () => {
                   </p>
                 )}
                 {item.description && (
-                  <p className="text-muted-foreground/70 text-[11px] line-clamp-1 mt-0.5">{item.description}</p>
+                  <p className="text-muted-foreground/70 text-[11px] line-clamp-2 mt-0.5 break-words">{item.description}</p>
                 )}
                 <p className="text-primary text-sm font-bold mt-1">₹{item.price}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-end sm:self-auto">
               <div className="flex items-center border border-border rounded-full overflow-hidden bg-white shadow-sm">
                 <button
                   onClick={() => { haptic('selection'); updateQuantity(item.menuItemId, item.variantId, item.quantity - 1); }}
