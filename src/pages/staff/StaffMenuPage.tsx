@@ -352,6 +352,7 @@ const StaffMenu = () => {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => toggleGlobalImages.mutate(!globalImagesHidden)}
+              disabled={toggleGlobalImages.isPending}
               className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full border ${globalImagesHidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
               title="Show or hide ALL menu images at once"
             >
@@ -419,12 +420,17 @@ const StaffMenu = () => {
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button
                   onClick={() => toggleImageHidden.mutate({ id: item.id, hidden: !item.image_hidden })}
+                  disabled={toggleImageHidden.isPending}
                   className="p-1.5 text-muted-foreground hover:text-primary"
                   title={item.image_hidden ? 'Show image' : 'Hide image'}
                 >
                   {item.image_hidden ? <ImageOff className="w-4 h-4" /> : <Image className="w-4 h-4" />}
                 </button>
-                <button onClick={() => toggleAvailability.mutate({ id: item.id, available: !item.is_available })} className="p-1.5 text-muted-foreground hover:text-primary">
+                <button
+                  onClick={() => toggleAvailability.mutate({ id: item.id, available: !item.is_available })}
+                  disabled={toggleAvailability.isPending}
+                  className="p-1.5 text-muted-foreground hover:text-primary"
+                >
                   {item.is_available ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                 </button>
                 <button onClick={() => openEditItem(item)} className="p-1.5 text-muted-foreground hover:text-primary">
