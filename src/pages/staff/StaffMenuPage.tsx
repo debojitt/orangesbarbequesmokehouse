@@ -33,9 +33,13 @@ const StaffMenu = () => {
   const { data: menuItems = [] } = useQuery({
     queryKey: ['menu-items-staff'],
     queryFn: async () => {
-      const { data: items } = await supabase.from('menu_items').select('*, item_variants(*)');
+      const { data: items } = await supabase
+        .from('menu_items')
+        .select('*, item_variants(*)')
+        .order('created_at', { ascending: true });
       return items || [];
     },
+    placeholderData: (prev) => prev,
   });
 
   const filteredMenuItems = filterCategory
@@ -99,14 +103,39 @@ const StaffMenu = () => {
     mutationFn: async ({ id, available }: { id: string; available: boolean }) => {
       await supabase.from('menu_items').update({ is_available: available }).eq('id', id);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] }),
+    onMutate: async ({ id, available }) => {
+      await queryClient.cancelQueries({ queryKey: ['menu-items-staff'] });
+      const prev = queryClient.getQueryData<any[]>(['menu-items-staff']);
+      queryClient.setQueryData<any[]>(['menu-items-staff'], (old) =>
+        (old || []).map((it) => (it.id === id ? { ...it, is_available: available } : it)),
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['menu-items-staff'], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] });
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] });
+    },
   });
 
   const toggleImageHidden = useMutation({
     mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) => {
       await supabase.from('menu_items').update({ image_hidden: hidden }).eq('id', id);
     },
-    onSuccess: () => {
+    onMutate: async ({ id, hidden }) => {
+      await queryClient.cancelQueries({ queryKey: ['menu-items-staff'] });
+      const prev = queryClient.getQueryData<any[]>(['menu-items-staff']);
+      queryClient.setQueryData<any[]>(['menu-items-staff'], (old) =>
+        (old || []).map((it) => (it.id === id ? { ...it, image_hidden: hidden } : it)),
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['menu-items-staff'], ctx.prev);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] });
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
     },
@@ -131,10 +160,24 @@ const StaffMenu = () => {
         updated_at: new Date().toISOString(),
       });
     },
-    onSuccess: () => {
+    onMutate: async (hidden) => {
+      await queryClient.cancelQueries({ queryKey: ['app-setting', 'images_hidden_global'] });
+      const prev = queryClient.getQueryData(['app-setting', 'images_hidden_global']);
+      queryClient.setQueryData(['app-setting', 'images_hidden_global'], {
+        key: 'images_hidden_global',
+        value: { value: hidden },
+      } as any);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev !== undefined) queryClient.setQueryData(['app-setting', 'images_hidden_global'], ctx.prev);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['app-setting', 'images_hidden_global'] });
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       queryClient.invalidateQueries({ queryKey: ['global-images-hidden'] });
+    },
+    onSuccess: () => {
       toast.success('Image visibility updated');
     },
   });
