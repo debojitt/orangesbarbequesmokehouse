@@ -180,11 +180,12 @@ const StaffMenu = () => {
 
   const toggleGlobalImages = useMutation({
     mutationFn: async (hidden: boolean) => {
-      await supabase.from('app_settings').upsert({
+      const { error } = await supabase.from('app_settings').upsert({
         key: 'images_hidden_global',
         value: { value: hidden } as any,
         updated_at: new Date().toISOString(),
       });
+      if (error) throw error;
     },
     onMutate: async (hidden) => {
       await queryClient.cancelQueries({ queryKey: ['app-setting', 'images_hidden_global'] });
@@ -197,14 +198,15 @@ const StaffMenu = () => {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev !== undefined) queryClient.setQueryData(['app-setting', 'images_hidden_global'], ctx.prev);
+      toast.error('Could not update global image visibility');
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['app-setting', 'images_hidden_global'] });
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       queryClient.invalidateQueries({ queryKey: ['global-images-hidden'] });
     },
-    onSuccess: () => {
-      toast.success('Image visibility updated');
+    onSuccess: (_data, hidden) => {
+      toast.success(hidden ? 'All menu images hidden' : 'All menu images visible');
     },
   });
 
