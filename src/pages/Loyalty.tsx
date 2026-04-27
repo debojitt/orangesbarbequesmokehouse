@@ -66,6 +66,23 @@ const LoyaltyPage = () => {
     },
   });
 
+  // If staff has set a per-card roulette override, fetch the prize so we can
+  // reveal what the guest will actually win on their next mystery spin.
+  const { data: overridePrize } = useQuery({
+    queryKey: ["loyalty-override-prize", (card as any)?.next_roulette_prize_id],
+    queryFn: async () => {
+      const id = (card as any)?.next_roulette_prize_id;
+      if (!id) return null;
+      const { data } = await supabase
+        .from("roulette_prizes")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!(card as any)?.next_roulette_prize_id,
+  });
+
   const handleLogin = async () => {
     if (!phone.trim() || !name.trim()) {
       toast.error("Enter your name & phone");
