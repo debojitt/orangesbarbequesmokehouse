@@ -327,6 +327,36 @@ const StaffLoyalty = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Record Visit PIN Dialog */}
+      <Dialog open={!!visitPinPrompt} onOpenChange={(o) => !o && setVisitPinPrompt(null)}>
+        <DialogContent className="glass-panel-strong border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-primary">Record Visit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-3">
+            <p className="text-xs text-muted-foreground">
+              Confirm staff PIN to record a visit. Any roulette override locked in will be applied automatically on the guest's next claim.
+            </p>
+            <input
+              type="password"
+              autoFocus
+              value={visitPin}
+              onChange={(e) => setVisitPin(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitVisit()}
+              placeholder="Staff PIN *"
+              className="w-full px-3 py-2 bg-secondary text-foreground border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+            />
+            <button
+              onClick={submitVisit}
+              disabled={recordingVisit}
+              className="w-full py-2 maroon-gradient text-primary-foreground font-medium rounded-lg disabled:opacity-50"
+            >
+              {recordingVisit ? 'Recording…' : 'Confirm Visit'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
