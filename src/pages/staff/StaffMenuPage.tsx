@@ -381,10 +381,11 @@ const StaffMenu = () => {
             <button
               onClick={() => toggleGlobalImages.mutate(!globalImagesHidden)}
               disabled={toggleGlobalImages.isPending}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full border ${globalImagesHidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full border bg-card disabled:opacity-60 ${globalImagesHidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
               title="Show or hide ALL menu images at once"
             >
               {globalImagesHidden ? <ImageOff className="w-3 h-3" /> : <Image className="w-3 h-3" />}
+              <Switch checked={!globalImagesHidden} disabled={toggleGlobalImages.isPending} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
               {globalImagesHidden ? 'Images: OFF' : 'Images: ON'}
             </button>
             <button
@@ -431,12 +432,12 @@ const StaffMenu = () => {
 
         <div className="space-y-2">
           {filteredMenuItems.map((item: any) => (
-            <div key={item.id} className={`bg-secondary/20 rounded-xl p-3 flex items-center justify-between ${!item.is_available ? 'opacity-50' : ''}`}>
+            <div key={item.id} className={`bg-secondary/20 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-opacity ${!item.is_available ? 'opacity-60' : ''}`}>
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className={item.item_variants?.length > 0 ? 'neutral-badge' : item.is_veg ? 'veg-badge' : 'nonveg-badge'} />
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground truncate">{item.name}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-foreground leading-snug break-words">{item.name}</span>
                     {item.is_bestseller && <Flame className="w-3 h-3 text-primary flex-shrink-0" />}
                     {item.is_chef_special && <ChefHat className="w-3 h-3 text-primary flex-shrink-0" />}
                   </div>
@@ -445,21 +446,24 @@ const StaffMenu = () => {
                   {item.image_hidden && <span className="text-[10px] text-muted-foreground ml-2">• Image hidden</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0 justify-end">
                 <button
                   onClick={() => toggleImageHidden.mutate({ id: item.id, hidden: !item.image_hidden })}
-                  disabled={toggleImageHidden.isPending}
-                  className="p-1.5 text-muted-foreground hover:text-primary"
+                  disabled={busyItemIds.has(item.id)}
+                  className={`flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium bg-card disabled:opacity-60 ${item.image_hidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
                   title={item.image_hidden ? 'Show image' : 'Hide image'}
                 >
                   {item.image_hidden ? <ImageOff className="w-4 h-4" /> : <Image className="w-4 h-4" />}
+                  <Switch checked={!item.image_hidden} disabled={busyItemIds.has(item.id)} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
                 </button>
                 <button
                   onClick={() => toggleAvailability.mutate({ id: item.id, available: !item.is_available })}
-                  disabled={toggleAvailability.isPending}
-                  className="p-1.5 text-muted-foreground hover:text-primary"
+                  disabled={busyItemIds.has(item.id)}
+                  className={`flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium bg-card disabled:opacity-60 ${item.is_available ? 'border-primary text-primary' : 'border-muted-foreground text-muted-foreground'}`}
+                  title={item.is_available ? 'Hide item from menu' : 'Show item on menu'}
                 >
                   {item.is_available ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  <Switch checked={item.is_available} disabled={busyItemIds.has(item.id)} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
                 </button>
                 <button onClick={() => openEditItem(item)} className="p-1.5 text-muted-foreground hover:text-primary">
                   <Edit className="w-4 h-4" />
