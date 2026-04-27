@@ -282,16 +282,16 @@ const StaffMenu = () => {
   };
 
   // Image generation runs automatically every minute via pg_cron.
-  // This button just kicks off an immediate batch (2 items) on demand.
+  // This button kicks off an immediate faster batch on demand.
   const handleGenerateAllImages = async () => {
     setPingingImages(true);
     try {
-      const { data } = await supabase.functions.invoke('auto-gen-images', { body: {} });
+      const { data } = await supabase.functions.invoke('auto-gen-images', { body: { batchSize: 6 } });
       if (data?.done) {
         toast.success('All items already have illustrations 🎉');
       } else {
         const okCount = (data?.results || []).filter((r: any) => r.ok).length;
-        toast.success(`Generated ${okCount} now. ${data?.remaining ?? '?'} left — running automatically every minute.`);
+        toast.success(`Generated ${okCount} now. ${data?.remaining ?? '?'} left — auto-run keeps going.`);
       }
       queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] });
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
