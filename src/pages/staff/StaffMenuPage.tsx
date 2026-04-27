@@ -378,16 +378,14 @@ const StaffMenu = () => {
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-display text-lg text-primary">Menu Items ({filteredMenuItems.length})</h2>
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => toggleGlobalImages.mutate(!globalImagesHidden)}
-              disabled={toggleGlobalImages.isPending}
+            <div
               className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full border bg-card disabled:opacity-60 ${globalImagesHidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
               title="Show or hide ALL menu images at once"
             >
               {globalImagesHidden ? <ImageOff className="w-3 h-3" /> : <Image className="w-3 h-3" />}
-              <Switch checked={!globalImagesHidden} disabled={toggleGlobalImages.isPending} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
+              <Switch checked={!globalImagesHidden} onCheckedChange={(checked) => toggleGlobalImages.mutate(!checked)} disabled={toggleGlobalImages.isPending} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
               {globalImagesHidden ? 'Images: OFF' : 'Images: ON'}
-            </button>
+            </div>
             <button
               onClick={handleGenerateAllDescriptions}
               disabled={generatingDescriptions}
@@ -447,24 +445,20 @@ const StaffMenu = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 justify-end">
-                <button
-                  onClick={() => toggleImageHidden.mutate({ id: item.id, hidden: !item.image_hidden })}
-                  disabled={busyItemIds.has(item.id)}
+                <div
                   className={`flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium bg-card disabled:opacity-60 ${item.image_hidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
                   title={item.image_hidden ? 'Show image' : 'Hide image'}
                 >
                   {item.image_hidden ? <ImageOff className="w-4 h-4" /> : <Image className="w-4 h-4" />}
-                  <Switch checked={!item.image_hidden} disabled={busyItemIds.has(item.id)} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
-                </button>
-                <button
-                  onClick={() => toggleAvailability.mutate({ id: item.id, available: !item.is_available })}
-                  disabled={busyItemIds.has(item.id)}
+                  <Switch checked={!item.image_hidden} onCheckedChange={(checked) => toggleImageHidden.mutate({ id: item.id, hidden: !checked })} disabled={busyItemIds.has(item.id)} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
+                </div>
+                <div
                   className={`flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium bg-card disabled:opacity-60 ${item.is_available ? 'border-primary text-primary' : 'border-muted-foreground text-muted-foreground'}`}
                   title={item.is_available ? 'Hide item from menu' : 'Show item on menu'}
                 >
                   {item.is_available ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  <Switch checked={item.is_available} disabled={busyItemIds.has(item.id)} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
-                </button>
+                  <Switch checked={item.is_available} onCheckedChange={(checked) => toggleAvailability.mutate({ id: item.id, available: checked })} disabled={busyItemIds.has(item.id)} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
+                </div>
                 <button onClick={() => openEditItem(item)} className="p-1.5 text-muted-foreground hover:text-primary">
                   <Edit className="w-4 h-4" />
                 </button>
