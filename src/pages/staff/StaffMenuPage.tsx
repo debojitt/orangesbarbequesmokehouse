@@ -325,11 +325,11 @@ const StaffMenu = () => {
             </button>
             <button
               onClick={handleGenerateAllImages}
-              disabled={generatingImages}
+              disabled={pingingImages}
               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full disabled:opacity-50"
             >
-              {generatingImages ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
-              AI Images
+              {pingingImages ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+              AI Images {imgProgress ? `(${imgProgress.withImages}/${imgProgress.total})` : ''}
             </button>
             <button
               onClick={() => { resetItemForm(); setShowItemForm(true); }}
@@ -338,8 +338,10 @@ const StaffMenu = () => {
               <Plus className="w-3 h-3" /> Add Item
             </button>
           </div>
-          {imageProgress && (
-            <p className="text-xs text-muted-foreground mt-1">{imageProgress}</p>
+          {imgProgress && imgProgress.withImages < imgProgress.total && (
+            <p className="text-xs text-muted-foreground mt-1 w-full">
+              🤖 Auto-generating illustrations: {imgProgress.withImages}/{imgProgress.total} done · {imgProgress.total - imgProgress.withImages} remaining (runs every minute)
+            </p>
           )}
         </div>
 
