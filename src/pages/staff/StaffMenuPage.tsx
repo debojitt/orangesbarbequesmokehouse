@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Edit, Trash2, Eye, EyeOff, ChefHat, Flame, Wand2, Loader2, Image, ImageOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 const StaffMenu = () => {
@@ -14,6 +15,7 @@ const StaffMenu = () => {
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
   const [pingingImages, setPingingImages] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('');
+  const [busyItemIds, setBusyItemIds] = useState<Set<string>>(new Set());
 
   const [itemForm, setItemForm] = useState({
     name: '', description: '', serving_info: '', base_price: '', category_id: '',
@@ -42,9 +44,19 @@ const StaffMenu = () => {
     placeholderData: (prev) => prev,
   });
 
-  const filteredMenuItems = filterCategory
-    ? menuItems.filter((item: any) => item.category_id === filterCategory)
-    : menuItems;
+  const filteredMenuItems = useMemo(
+    () => (filterCategory ? menuItems.filter((item: any) => item.category_id === filterCategory) : menuItems),
+    [filterCategory, menuItems],
+  );
+
+  const setItemBusy = (id: string, busy: boolean) => {
+    setBusyItemIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
 
   const saveItem = useMutation({
     mutationFn: async () => {
@@ -101,9 +113,11 @@ const StaffMenu = () => {
 
   const toggleAvailability = useMutation({
     mutationFn: async ({ id, available }: { id: string; available: boolean }) => {
-      await supabase.from('menu_items').update({ is_available: available }).eq('id', id);
+      const { error } = await supabase.from('menu_items').update({ is_available: available }).eq('id', id);
+      if (error) throw error;
     },
     onMutate: async ({ id, available }) => {
+      setItemBusy(id, true);
       await queryClient.cancelQueries({ queryKey: ['menu-items-staff'] });
       const prev = queryClient.getQueryData<any[]>(['menu-items-staff']);
       queryClient.setQueryData<any[]>(['menu-items-staff'], (old) =>
@@ -113,18 +127,25 @@ const StaffMenu = () => {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['menu-items-staff'], ctx.prev);
+      toast.error('Could not update item visibility');
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] });
+    onSuccess: (_data, { available }) => {
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
+      toast.success(available ? 'Item visible on menu' : 'Item hidden from menu');
+    },
+    onSettled: (_data, _error, { id }) => {
+      setItemBusy(id, false);
+      queryClient.invalidateQueries({ queryKey: ['menu-items-staff'], refetchType: 'inactive' });
     },
   });
 
   const toggleImageHidden = useMutation({
     mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) => {
-      await supabase.from('menu_items').update({ image_hidden: hidden }).eq('id', id);
+      const { error } = await supabase.from('menu_items').update({ image_hidden: hidden }).eq('id', id);
+      if (error) throw error;
     },
     onMutate: async ({ id, hidden }) => {
+      setItemBusy(id, true);
       await queryClient.cancelQueries({ queryKey: ['menu-items-staff'] });
       const prev = queryClient.getQueryData<any[]>(['menu-items-staff']);
       queryClient.setQueryData<any[]>(['menu-items-staff'], (old) =>
@@ -134,10 +155,15 @@ const StaffMenu = () => {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['menu-items-staff'], ctx.prev);
+      toast.error('Could not update image visibility');
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] });
+    onSuccess: (_data, { hidden }) => {
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
+      toast.success(hidden ? 'Image hidden for this item' : 'Image shown for this item');
+    },
+    onSettled: (_data, _error, { id }) => {
+      setItemBusy(id, false);
+      queryClient.invalidateQueries({ queryKey: ['menu-items-staff'], refetchType: 'inactive' });
     },
   });
 
@@ -154,11 +180,12 @@ const StaffMenu = () => {
 
   const toggleGlobalImages = useMutation({
     mutationFn: async (hidden: boolean) => {
-      await supabase.from('app_settings').upsert({
+      const { error } = await supabase.from('app_settings').upsert({
         key: 'images_hidden_global',
         value: { value: hidden } as any,
         updated_at: new Date().toISOString(),
       });
+      if (error) throw error;
     },
     onMutate: async (hidden) => {
       await queryClient.cancelQueries({ queryKey: ['app-setting', 'images_hidden_global'] });
@@ -171,14 +198,15 @@ const StaffMenu = () => {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev !== undefined) queryClient.setQueryData(['app-setting', 'images_hidden_global'], ctx.prev);
+      toast.error('Could not update global image visibility');
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['app-setting', 'images_hidden_global'] });
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       queryClient.invalidateQueries({ queryKey: ['global-images-hidden'] });
     },
-    onSuccess: () => {
-      toast.success('Image visibility updated');
+    onSuccess: (_data, hidden) => {
+      toast.success(hidden ? 'All menu images hidden' : 'All menu images visible');
     },
   });
 
@@ -254,16 +282,16 @@ const StaffMenu = () => {
   };
 
   // Image generation runs automatically every minute via pg_cron.
-  // This button just kicks off an immediate batch (2 items) on demand.
+  // This button kicks off an immediate faster batch on demand.
   const handleGenerateAllImages = async () => {
     setPingingImages(true);
     try {
-      const { data } = await supabase.functions.invoke('auto-gen-images', { body: {} });
+      const { data } = await supabase.functions.invoke('auto-gen-images', { body: { batchSize: 6 } });
       if (data?.done) {
         toast.success('All items already have illustrations 🎉');
       } else {
         const okCount = (data?.results || []).filter((r: any) => r.ok).length;
-        toast.success(`Generated ${okCount} now. ${data?.remaining ?? '?'} left — running automatically every minute.`);
+        toast.success(`Generated ${okCount} now. ${data?.remaining ?? '?'} left — auto-run keeps going.`);
       }
       queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] });
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
@@ -350,15 +378,14 @@ const StaffMenu = () => {
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-display text-lg text-primary">Menu Items ({filteredMenuItems.length})</h2>
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => toggleGlobalImages.mutate(!globalImagesHidden)}
-              disabled={toggleGlobalImages.isPending}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full border ${globalImagesHidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
+            <div
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full border bg-card disabled:opacity-60 ${globalImagesHidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
               title="Show or hide ALL menu images at once"
             >
               {globalImagesHidden ? <ImageOff className="w-3 h-3" /> : <Image className="w-3 h-3" />}
+              <Switch checked={!globalImagesHidden} onCheckedChange={(checked) => toggleGlobalImages.mutate(!checked)} disabled={toggleGlobalImages.isPending} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
               {globalImagesHidden ? 'Images: OFF' : 'Images: ON'}
-            </button>
+            </div>
             <button
               onClick={handleGenerateAllDescriptions}
               disabled={generatingDescriptions}
@@ -403,12 +430,12 @@ const StaffMenu = () => {
 
         <div className="space-y-2">
           {filteredMenuItems.map((item: any) => (
-            <div key={item.id} className={`bg-secondary/20 rounded-xl p-3 flex items-center justify-between ${!item.is_available ? 'opacity-50' : ''}`}>
+            <div key={item.id} className={`bg-secondary/20 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-opacity ${!item.is_available ? 'opacity-60' : ''}`}>
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className={item.item_variants?.length > 0 ? 'neutral-badge' : item.is_veg ? 'veg-badge' : 'nonveg-badge'} />
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground truncate">{item.name}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-foreground leading-snug break-words">{item.name}</span>
                     {item.is_bestseller && <Flame className="w-3 h-3 text-primary flex-shrink-0" />}
                     {item.is_chef_special && <ChefHat className="w-3 h-3 text-primary flex-shrink-0" />}
                   </div>
@@ -417,22 +444,21 @@ const StaffMenu = () => {
                   {item.image_hidden && <span className="text-[10px] text-muted-foreground ml-2">• Image hidden</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={() => toggleImageHidden.mutate({ id: item.id, hidden: !item.image_hidden })}
-                  disabled={toggleImageHidden.isPending}
-                  className="p-1.5 text-muted-foreground hover:text-primary"
+              <div className="flex items-center gap-2 flex-shrink-0 justify-end">
+                <div
+                  className={`flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium bg-card disabled:opacity-60 ${item.image_hidden ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
                   title={item.image_hidden ? 'Show image' : 'Hide image'}
                 >
                   {item.image_hidden ? <ImageOff className="w-4 h-4" /> : <Image className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => toggleAvailability.mutate({ id: item.id, available: !item.is_available })}
-                  disabled={toggleAvailability.isPending}
-                  className="p-1.5 text-muted-foreground hover:text-primary"
+                  <Switch checked={!item.image_hidden} onCheckedChange={(checked) => toggleImageHidden.mutate({ id: item.id, hidden: !checked })} disabled={busyItemIds.has(item.id)} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
+                </div>
+                <div
+                  className={`flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium bg-card disabled:opacity-60 ${item.is_available ? 'border-primary text-primary' : 'border-muted-foreground text-muted-foreground'}`}
+                  title={item.is_available ? 'Hide item from menu' : 'Show item on menu'}
                 >
                   {item.is_available ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </button>
+                  <Switch checked={item.is_available} onCheckedChange={(checked) => toggleAvailability.mutate({ id: item.id, available: checked })} disabled={busyItemIds.has(item.id)} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
+                </div>
                 <button onClick={() => openEditItem(item)} className="p-1.5 text-muted-foreground hover:text-primary">
                   <Edit className="w-4 h-4" />
                 </button>

@@ -1,5 +1,5 @@
 // Cron-driven background image generation.
-// Each call processes ONE missing menu_item image via Pollinations.ai (free).
+// Uses Lovable AI for faster, more reliable food illustrations.
 // Designed to be triggered every minute by pg_cron — persistent across sandbox restarts.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -10,37 +10,58 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+function dataUrlToBytes(dataUrl: string) {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) throw new Error("AI did not return a valid image");
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return { bytes, contentType: match[1] };
+}
+
 async function generateOne(item: { id: string; name: string; is_veg: boolean }) {
-  const prompt = `A beautiful, appetizing food illustration of "${item.name}", ${item.is_veg ? "vegetarian" : "non-vegetarian"} Indian dish, top-down view on a clean plate, professional food photography style, warm lighting, on a solid white background`;
-  const seed = Math.floor(Math.random() * 1000000);
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=768&seed=${seed}&model=flux&nologo=true&enhance=true`;
+  const prompt = `Create a clean, appetizing square menu illustration of ${item.name}. ${item.is_veg ? "Vegetarian Indian restaurant dish" : "Non-vegetarian Indian restaurant dish"}. Top-down plated food, bright natural light, crisp detail, solid warm white background, no logo, no text, no hands, no watermark.`;
+  let bytes: Uint8Array;
+  let contentType: string;
 
-  // Up to 3 attempts with backoff
-  let buf: Uint8Array | null = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const arr = new Uint8Array(await res.arrayBuffer());
-      if (arr.length < 1000) throw new Error("Image too small");
-      buf = arr;
-      break;
-    } catch (e) {
-      console.error(`Attempt ${attempt} failed for ${item.name}:`, e);
-      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 2000));
-    }
+  try {
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-image-preview",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new Error(`AI image request failed: HTTP ${res.status}`);
+    const data = await res.json();
+    const imageUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (!imageUrl) throw new Error("AI did not return an image");
+    ({ bytes, contentType } = dataUrlToBytes(imageUrl));
+  } catch (aiError) {
+    console.error(`Lovable AI unavailable for ${item.name}, falling back:`, aiError);
+    const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&model=turbo&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
+    const fallback = await fetch(fallbackUrl, { signal: AbortSignal.timeout(30000) });
+    if (!fallback.ok) throw new Error(`Fallback image request failed: HTTP ${fallback.status}`);
+    bytes = new Uint8Array(await fallback.arrayBuffer());
+    contentType = fallback.headers.get("content-type") || "image/jpeg";
   }
-  if (!buf) throw new Error("All attempts failed");
+  if (bytes.length < 1000) throw new Error("Generated image is too small");
 
-  const fileName = `items/${item.id}.jpg`;
+  const extension = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+  const fileName = `items/${item.id}.${extension}`;
   const { error: upErr } = await supabase.storage
     .from("gallery")
-    .upload(fileName, buf, { contentType: "image/jpeg", upsert: true });
+    .upload(fileName, bytes, { contentType, upsert: true });
   if (upErr) throw upErr;
 
   const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/gallery/${fileName}`;
@@ -55,6 +76,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const requestBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const batchSize = Math.max(1, Math.min(Number(requestBody.batchSize) || 3, 6));
+
     // Find items without gallery_images
     const { data: items } = await supabase.from("menu_items").select("id, name, is_veg");
     const { data: existing } = await supabase.from("gallery_images").select("menu_item_id");
@@ -65,17 +89,17 @@ Deno.serve(async (req) => {
       return json({ done: true, message: "All items have images", remaining: 0 });
     }
 
-    // Process up to 2 items per invocation (within a minute window)
-    const batch = missing.slice(0, 2);
-    const results: any[] = [];
-    for (const item of batch) {
+    // Process several items per invocation, but cap it to avoid serverless timeouts.
+    const batch = missing.slice(0, batchSize);
+    const results = await Promise.all(batch.map(async (item: any) => {
       try {
         const url = await generateOne(item);
-        results.push({ id: item.id, name: item.name, ok: true, url });
+        return { id: item.id, name: item.name, ok: true, url };
       } catch (e) {
-        results.push({ id: item.id, name: item.name, ok: false, error: e instanceof Error ? e.message : String(e) });
+        console.error(`Image generation failed for ${item.name}:`, e);
+        return { id: item.id, name: item.name, ok: false, error: e instanceof Error ? e.message : String(e) };
       }
-    }
+    }));
 
     return json({ done: false, remaining: missing.length - results.filter(r => r.ok).length, results });
   } catch (e) {
