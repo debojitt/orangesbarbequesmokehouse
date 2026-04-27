@@ -26,29 +26,35 @@ function dataUrlToBytes(dataUrl: string) {
 }
 
 async function generateOne(item: { id: string; name: string; is_veg: boolean }) {
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
   const prompt = `Create a clean, appetizing square menu illustration of ${item.name}. ${item.is_veg ? "Vegetarian Indian restaurant dish" : "Non-vegetarian Indian restaurant dish"}. Top-down plated food, bright natural light, crisp detail, solid warm white background, no logo, no text, no hands, no watermark.`;
+  let bytes: Uint8Array;
+  let contentType: string;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image-preview",
-      messages: [{ role: "user", content: prompt }],
-      modalities: ["image", "text"],
-    }),
-    signal: AbortSignal.timeout(45000),
-  });
-
-  if (!res.ok) throw new Error(`AI image request failed: HTTP ${res.status}`);
-  const data = await res.json();
-  const imageUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!imageUrl) throw new Error("AI did not return an image");
-
-  const { bytes, contentType } = dataUrlToBytes(imageUrl);
+  try {
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-image-preview",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new Error(`AI image request failed: HTTP ${res.status}`);
+    const data = await res.json();
+    const imageUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (!imageUrl) throw new Error("AI did not return an image");
+    ({ bytes, contentType } = dataUrlToBytes(imageUrl));
+  } catch (aiError) {
+    console.error(`Lovable AI unavailable for ${item.name}, falling back:`, aiError);
+    const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&model=turbo&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
+    const fallback = await fetch(fallbackUrl, { signal: AbortSignal.timeout(30000) });
+    if (!fallback.ok) throw new Error(`Fallback image request failed: HTTP ${fallback.status}`);
+    bytes = new Uint8Array(await fallback.arrayBuffer());
+    contentType = fallback.headers.get("content-type") || "image/jpeg";
+  }
   if (bytes.length < 1000) throw new Error("Generated image is too small");
 
   const extension = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
