@@ -12,8 +12,7 @@ const StaffMenu = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
-  const [generatingImages, setGeneratingImages] = useState(false);
-  const [imageProgress, setImageProgress] = useState('');
+  const [pingingImages, setPingingImages] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('');
 
   const [itemForm, setItemForm] = useState({
@@ -211,41 +210,43 @@ const StaffMenu = () => {
     setGeneratingDescriptions(false);
   };
 
+  // Image generation runs automatically every minute via pg_cron.
+  // This button just kicks off an immediate batch (2 items) on demand.
   const handleGenerateAllImages = async () => {
-    setGeneratingImages(true);
-    setImageProgress('Checking items...');
+    setPingingImages(true);
     try {
-      const { data: listData } = await supabase.functions.invoke('ai-craving', {
-        body: { action: 'list-items-without-images' },
-      });
-      const missingItems = listData?.items || [];
-      if (missingItems.length === 0) {
-        toast.info('All items already have illustrations');
-        setGeneratingImages(false);
-        setImageProgress('');
-        return;
+      const { data } = await supabase.functions.invoke('auto-gen-images', { body: {} });
+      if (data?.done) {
+        toast.success('All items already have illustrations 🎉');
+      } else {
+        const okCount = (data?.results || []).filter((r: any) => r.ok).length;
+        toast.success(`Generated ${okCount} now. ${data?.remaining ?? '?'} left — running automatically every minute.`);
       }
-      let generated = 0;
-      for (const item of missingItems) {
-        setImageProgress(`Generating ${generated + 1}/${missingItems.length}: ${item.name}`);
-        try {
-          await supabase.functions.invoke('ai-craving', {
-            body: { action: 'generate-illustration', item_id: item.id, item_name: item.name, is_veg: item.is_veg },
-          });
-          generated++;
-        } catch (err) {
-          console.error(`Failed to generate image for ${item.name}:`, err);
-        }
-        // Small delay to avoid rate limiting
-        await new Promise(r => setTimeout(r, 2000));
-      }
-      toast.success(`Generated illustrations for ${generated} items`);
+      queryClient.invalidateQueries({ queryKey: ['menu-items-staff'] });
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] });
+      queryClient.invalidateQueries({ queryKey: ['image-gen-progress'] });
     } catch (e) {
-      toast.error('Failed to generate illustrations');
+      toast.error('Failed to ping image generator');
+    } finally {
+      setPingingImages(false);
     }
-    setGeneratingImages(false);
-    setImageProgress('');
   };
+
+  // Live progress counter (auto-refreshes)
+  const { data: imgProgress } = useQuery({
+    queryKey: ['image-gen-progress'],
+    queryFn: async () => {
+      const { count: totalCount } = await supabase
+        .from('menu_items')
+        .select('*', { count: 'exact', head: true });
+      const { data: gallery } = await supabase
+        .from('gallery_images')
+        .select('menu_item_id');
+      const withImages = new Set((gallery || []).map((g: any) => g.menu_item_id)).size;
+      return { total: totalCount || 0, withImages };
+    },
+    refetchInterval: 30000,
+  });
 
   const resetItemForm = () => {
     setItemForm({ name: '', description: '', serving_info: '', base_price: '', category_id: '', is_veg: true, is_bestseller: false, is_chef_special: false, is_daily_special: false, variants: [] });
