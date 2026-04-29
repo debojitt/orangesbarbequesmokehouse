@@ -417,7 +417,16 @@ const StaffMenu = () => {
               title="Show or hide ALL menu images at once"
             >
               {globalImagesHidden ? <ImageOff className="w-3 h-3" /> : <Image className="w-3 h-3" />}
-              <Switch checked={!globalImagesHidden} onCheckedChange={(checked) => toggleGlobalImages.mutate(!checked)} disabled={toggleGlobalImages.isPending} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
+              {globalImagesSaving && <Loader2 className="w-3 h-3 animate-spin" aria-label="Saving image setting" />}
+              <Switch
+                checked={!globalImagesHidden}
+                onCheckedChange={(checked) => {
+                  if (globalImagesBusyRef.current) return;
+                  toggleGlobalImages.mutate(!checked);
+                }}
+                disabled={globalImagesSaving}
+                className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4"
+              />
               {globalImagesHidden ? 'Images: OFF' : 'Images: ON'}
             </div>
             <button
@@ -462,11 +471,11 @@ const StaffMenu = () => {
           ))}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 staff-menu-list">
           {filteredMenuItems.map((item: any) => (
             <div
               key={item.id}
-              className={`bg-secondary/20 rounded-xl p-3 flex flex-row items-center justify-between gap-3 min-h-[68px] transition-opacity ${!item.is_available ? 'opacity-60' : ''} ${busyItemIds.has(item.id) ? 'pointer-events-none' : ''}`}
+              className={`bg-secondary/20 rounded-xl px-4 py-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 min-h-[72px] transition-opacity ${!item.is_available ? 'opacity-60' : ''}`}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className={item.item_variants?.length > 0 ? 'neutral-badge' : item.is_veg ? 'veg-badge' : 'nonveg-badge'} />
@@ -490,10 +499,10 @@ const StaffMenu = () => {
                   title={item.image_hidden ? 'Show image' : 'Hide image'}
                 >
                   {item.image_hidden ? <ImageOff className="w-4 h-4" /> : <Image className="w-4 h-4" />}
-                  <Switch
+                    <Switch
                     checked={!item.image_hidden}
                     onCheckedChange={(checked) => {
-                      if (busyItemIds.has(item.id)) return;
+                        if (busyItemIdsRef.current.has(item.id)) return;
                       toggleImageHidden.mutate({ id: item.id, hidden: !checked });
                     }}
                     disabled={busyItemIds.has(item.id)}
@@ -505,10 +514,10 @@ const StaffMenu = () => {
                   title={item.is_available ? 'Hide item from menu' : 'Show item on menu'}
                 >
                   {item.is_available ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  <Switch
+                    <Switch
                     checked={item.is_available}
                     onCheckedChange={(checked) => {
-                      if (busyItemIds.has(item.id)) return;
+                        if (busyItemIdsRef.current.has(item.id)) return;
                       toggleAvailability.mutate({ id: item.id, available: checked });
                     }}
                     disabled={busyItemIds.has(item.id)}
