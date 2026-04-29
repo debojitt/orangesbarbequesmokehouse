@@ -42,6 +42,8 @@ const StaffMenu = () => {
       return items || [];
     },
     placeholderData: (prev) => prev,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const filteredMenuItems = useMemo(
