@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Edit, Trash2, Eye, EyeOff, ChefHat, Flame, Wand2, Loader2, Image, ImageOff } from 'lucide-react';
@@ -16,6 +16,9 @@ const StaffMenu = () => {
   const [pingingImages, setPingingImages] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [busyItemIds, setBusyItemIds] = useState<Set<string>>(new Set());
+  const busyItemIdsRef = useRef<Set<string>>(new Set());
+  const globalImagesBusyRef = useRef(false);
+  const [globalImagesSaving, setGlobalImagesSaving] = useState(false);
 
   const [itemForm, setItemForm] = useState({
     name: '', description: '', serving_info: '', base_price: '', category_id: '',
@@ -52,6 +55,11 @@ const StaffMenu = () => {
   );
 
   const setItemBusy = (id: string, busy: boolean) => {
+    const current = new Set(busyItemIdsRef.current);
+    if (busy) current.add(id);
+    else current.delete(id);
+    busyItemIdsRef.current = current;
+
     setBusyItemIds((prev) => {
       const next = new Set(prev);
       if (busy) next.add(id);
@@ -117,6 +125,13 @@ const StaffMenu = () => {
     mutationFn: async ({ id, available }: { id: string; available: boolean }) => {
       const { error } = await supabase.from('menu_items').update({ is_available: available }).eq('id', id);
       if (error) throw error;
+      const { data, error: readError } = await supabase
+        .from('menu_items')
+        .select('id, is_available, image_hidden')
+        .eq('id', id)
+        .single();
+      if (readError) throw readError;
+      return data;
     },
     onMutate: async ({ id, available }) => {
       setItemBusy(id, true);
@@ -131,7 +146,10 @@ const StaffMenu = () => {
       if (ctx?.prev) queryClient.setQueryData(['menu-items-staff'], ctx.prev);
       toast.error('Could not update item visibility');
     },
-    onSuccess: (_data, { available }) => {
+    onSuccess: (saved, { id, available }) => {
+      queryClient.setQueryData<any[]>(['menu-items-staff'], (old) =>
+        (old || []).map((it) => (it.id === id ? { ...it, ...saved } : it)),
+      );
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       toast.success(available ? 'Item visible on menu' : 'Item hidden from menu');
     },
@@ -145,6 +163,13 @@ const StaffMenu = () => {
     mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) => {
       const { error } = await supabase.from('menu_items').update({ image_hidden: hidden }).eq('id', id);
       if (error) throw error;
+      const { data, error: readError } = await supabase
+        .from('menu_items')
+        .select('id, is_available, image_hidden')
+        .eq('id', id)
+        .single();
+      if (readError) throw readError;
+      return data;
     },
     onMutate: async ({ id, hidden }) => {
       setItemBusy(id, true);
@@ -159,7 +184,10 @@ const StaffMenu = () => {
       if (ctx?.prev) queryClient.setQueryData(['menu-items-staff'], ctx.prev);
       toast.error('Could not update image visibility');
     },
-    onSuccess: (_data, { hidden }) => {
+    onSuccess: (saved, { id, hidden }) => {
+      queryClient.setQueryData<any[]>(['menu-items-staff'], (old) =>
+        (old || []).map((it) => (it.id === id ? { ...it, ...saved } : it)),
+      );
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       toast.success(hidden ? 'Image hidden for this item' : 'Image shown for this item');
     },
@@ -182,6 +210,8 @@ const StaffMenu = () => {
 
   const toggleGlobalImages = useMutation({
     mutationFn: async (hidden: boolean) => {
+      globalImagesBusyRef.current = true;
+      setGlobalImagesSaving(true);
       const { error } = await supabase.from('app_settings').upsert({
         key: 'images_hidden_global',
         value: { value: hidden } as any,
@@ -203,6 +233,8 @@ const StaffMenu = () => {
       toast.error('Could not update global image visibility');
     },
     onSettled: () => {
+      globalImagesBusyRef.current = false;
+      setGlobalImagesSaving(false);
       queryClient.invalidateQueries({ queryKey: ['app-setting', 'images_hidden_global'] });
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       queryClient.invalidateQueries({ queryKey: ['global-images-hidden'] });
@@ -348,7 +380,7 @@ const StaffMenu = () => {
   return (
     <div className="space-y-6">
       {/* Categories */}
-      <div className="ios-card p-4">
+      <div className="ios-card staff-static-card p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display text-lg text-primary">Categories</h2>
           <button
@@ -376,7 +408,7 @@ const StaffMenu = () => {
       </div>
 
       {/* Menu Items */}
-      <div className="ios-card p-4">
+      <div className="ios-card staff-static-card p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-display text-lg text-primary">Menu Items ({filteredMenuItems.length})</h2>
           <div className="flex gap-2 flex-wrap">
@@ -385,7 +417,16 @@ const StaffMenu = () => {
               title="Show or hide ALL menu images at once"
             >
               {globalImagesHidden ? <ImageOff className="w-3 h-3" /> : <Image className="w-3 h-3" />}
-              <Switch checked={!globalImagesHidden} onCheckedChange={(checked) => toggleGlobalImages.mutate(!checked)} disabled={toggleGlobalImages.isPending} className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4" />
+              {globalImagesSaving && <Loader2 className="w-3 h-3 animate-spin" aria-label="Saving image setting" />}
+              <Switch
+                checked={!globalImagesHidden}
+                onCheckedChange={(checked) => {
+                  if (globalImagesBusyRef.current) return;
+                  toggleGlobalImages.mutate(!checked);
+                }}
+                disabled={globalImagesSaving}
+                className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-4"
+              />
               {globalImagesHidden ? 'Images: OFF' : 'Images: ON'}
             </div>
             <button
@@ -430,11 +471,11 @@ const StaffMenu = () => {
           ))}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 staff-menu-list">
           {filteredMenuItems.map((item: any) => (
             <div
               key={item.id}
-              className={`bg-secondary/20 rounded-xl p-3 flex flex-row items-center justify-between gap-3 min-h-[68px] transition-opacity ${!item.is_available ? 'opacity-60' : ''} ${busyItemIds.has(item.id) ? 'pointer-events-none' : ''}`}
+              className={`bg-secondary/20 rounded-xl px-4 py-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 min-h-[72px] transition-opacity ${!item.is_available ? 'opacity-60' : ''}`}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className={item.item_variants?.length > 0 ? 'neutral-badge' : item.is_veg ? 'veg-badge' : 'nonveg-badge'} />
@@ -458,10 +499,10 @@ const StaffMenu = () => {
                   title={item.image_hidden ? 'Show image' : 'Hide image'}
                 >
                   {item.image_hidden ? <ImageOff className="w-4 h-4" /> : <Image className="w-4 h-4" />}
-                  <Switch
+                    <Switch
                     checked={!item.image_hidden}
                     onCheckedChange={(checked) => {
-                      if (busyItemIds.has(item.id)) return;
+                        if (busyItemIdsRef.current.has(item.id)) return;
                       toggleImageHidden.mutate({ id: item.id, hidden: !checked });
                     }}
                     disabled={busyItemIds.has(item.id)}
@@ -473,10 +514,10 @@ const StaffMenu = () => {
                   title={item.is_available ? 'Hide item from menu' : 'Show item on menu'}
                 >
                   {item.is_available ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  <Switch
+                    <Switch
                     checked={item.is_available}
                     onCheckedChange={(checked) => {
-                      if (busyItemIds.has(item.id)) return;
+                        if (busyItemIdsRef.current.has(item.id)) return;
                       toggleAvailability.mutate({ id: item.id, available: checked });
                     }}
                     disabled={busyItemIds.has(item.id)}
