@@ -12,6 +12,38 @@
     <meta name="apple-mobile-web-app-title" content="INARA" />
     <style>
       html, body, #root { background-color: #F8F8FF; }
+      /* Boot splash — shown instantly before React mounts, hidden once #root has children */
+      #inara-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #F8F8FF 0%, #f3eaea 100%);
+        transition: opacity 0.35s ease;
+      }
+      #inara-splash .inara-logo {
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: clamp(2.5rem, 9vw, 4.5rem);
+        font-weight: 700;
+        letter-spacing: 0.25em;
+        background: linear-gradient(90deg,
+          #7a1a1a 0%, #c9a14a 25%, #f3d27a 50%, #c9a14a 75%, #7a1a1a 100%);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: inaraShimmer 1.6s linear infinite;
+      }
+      #inara-splash .inara-sub {
+        position: absolute; bottom: 14%; left: 0; right: 0;
+        text-align: center; color: rgba(122,26,26,0.55);
+        font-family: 'Inter', sans-serif; font-size: 0.7rem;
+        letter-spacing: 0.3em; text-transform: uppercase;
+      }
+      @keyframes inaraShimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      #root:not(:empty) + #inara-splash,
+      body.app-ready #inara-splash { opacity: 0; pointer-events: none; }
     </style>
 
     <meta property="og:type" content="website" />
@@ -27,6 +59,32 @@
 
   <body>
     <div id="root"></div>
+    <div id="inara-splash" aria-hidden="true">
+      <div class="inara-logo">INARA</div>
+      <div class="inara-sub">Loading your menu</div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Hide splash once React has rendered (root has children)
+      (function () {
+        var root = document.getElementById('root');
+        var splash = document.getElementById('inara-splash');
+        if (!root || !splash) return;
+        var hide = function () {
+          document.body.classList.add('app-ready');
+          setTimeout(function () { splash && splash.parentNode && splash.parentNode.removeChild(splash); }, 400);
+        };
+        var check = function () {
+          if (root.childNodes.length > 0) { hide(); return true; }
+          return false;
+        };
+        if (!check()) {
+          var obs = new MutationObserver(function () { if (check()) obs.disconnect(); });
+          obs.observe(root, { childList: true });
+          // Safety net
+          setTimeout(function () { obs.disconnect(); hide(); }, 8000);
+        }
+      })();
+    </script>
   </body>
 </html>
