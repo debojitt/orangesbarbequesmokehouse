@@ -380,7 +380,7 @@ const StaffMenu = () => {
   return (
     <div className="space-y-6">
       {/* Categories */}
-      <div className="ios-card p-4">
+      <div className="ios-card staff-static-card p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display text-lg text-primary">Categories</h2>
           <button
@@ -408,7 +408,7 @@ const StaffMenu = () => {
       </div>
 
       {/* Menu Items */}
-      <div className="ios-card p-4">
+      <div className="ios-card staff-static-card p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-display text-lg text-primary">Menu Items ({filteredMenuItems.length})</h2>
           <div className="flex gap-2 flex-wrap">
