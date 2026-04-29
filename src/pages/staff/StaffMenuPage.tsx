@@ -125,6 +125,13 @@ const StaffMenu = () => {
     mutationFn: async ({ id, available }: { id: string; available: boolean }) => {
       const { error } = await supabase.from('menu_items').update({ is_available: available }).eq('id', id);
       if (error) throw error;
+      const { data, error: readError } = await supabase
+        .from('menu_items')
+        .select('id, is_available, image_hidden')
+        .eq('id', id)
+        .single();
+      if (readError) throw readError;
+      return data;
     },
     onMutate: async ({ id, available }) => {
       setItemBusy(id, true);
@@ -139,7 +146,10 @@ const StaffMenu = () => {
       if (ctx?.prev) queryClient.setQueryData(['menu-items-staff'], ctx.prev);
       toast.error('Could not update item visibility');
     },
-    onSuccess: (_data, { available }) => {
+    onSuccess: (saved, { id, available }) => {
+      queryClient.setQueryData<any[]>(['menu-items-staff'], (old) =>
+        (old || []).map((it) => (it.id === id ? { ...it, ...saved } : it)),
+      );
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       toast.success(available ? 'Item visible on menu' : 'Item hidden from menu');
     },
@@ -153,6 +163,13 @@ const StaffMenu = () => {
     mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) => {
       const { error } = await supabase.from('menu_items').update({ image_hidden: hidden }).eq('id', id);
       if (error) throw error;
+      const { data, error: readError } = await supabase
+        .from('menu_items')
+        .select('id, is_available, image_hidden')
+        .eq('id', id)
+        .single();
+      if (readError) throw readError;
+      return data;
     },
     onMutate: async ({ id, hidden }) => {
       setItemBusy(id, true);
@@ -167,7 +184,10 @@ const StaffMenu = () => {
       if (ctx?.prev) queryClient.setQueryData(['menu-items-staff'], ctx.prev);
       toast.error('Could not update image visibility');
     },
-    onSuccess: (_data, { hidden }) => {
+    onSuccess: (saved, { id, hidden }) => {
+      queryClient.setQueryData<any[]>(['menu-items-staff'], (old) =>
+        (old || []).map((it) => (it.id === id ? { ...it, ...saved } : it)),
+      );
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       toast.success(hidden ? 'Image hidden for this item' : 'Image shown for this item');
     },
