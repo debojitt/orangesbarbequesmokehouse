@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Edit, Trash2, Eye, EyeOff, ChefHat, Flame, Wand2, Loader2, Image, ImageOff } from 'lucide-react';
@@ -16,6 +16,9 @@ const StaffMenu = () => {
   const [pingingImages, setPingingImages] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [busyItemIds, setBusyItemIds] = useState<Set<string>>(new Set());
+  const busyItemIdsRef = useRef<Set<string>>(new Set());
+  const globalImagesBusyRef = useRef(false);
+  const [globalImagesSaving, setGlobalImagesSaving] = useState(false);
 
   const [itemForm, setItemForm] = useState({
     name: '', description: '', serving_info: '', base_price: '', category_id: '',
@@ -52,6 +55,11 @@ const StaffMenu = () => {
   );
 
   const setItemBusy = (id: string, busy: boolean) => {
+    const current = new Set(busyItemIdsRef.current);
+    if (busy) current.add(id);
+    else current.delete(id);
+    busyItemIdsRef.current = current;
+
     setBusyItemIds((prev) => {
       const next = new Set(prev);
       if (busy) next.add(id);
