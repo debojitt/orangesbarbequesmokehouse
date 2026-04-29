@@ -23,6 +23,8 @@ const Index = () => {
       const { data } = await supabase.from('categories').select('*').eq('is_visible', true).order('display_order');
       return data || [];
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: menuItems = [] } = useQuery({
@@ -68,6 +70,8 @@ const Index = () => {
         };
       });
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const shuffledItems = useMemo(() => {
