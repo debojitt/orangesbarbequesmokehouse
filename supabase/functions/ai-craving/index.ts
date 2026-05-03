@@ -174,7 +174,7 @@ serve(async (req) => {
     // Try AI first, fall back to smart keyword matching
     try {
       const menuContext = menuItems.map((item: any) =>
-        `- ${item.name} (₹${item.base_price}, ${item.is_veg ? 'Veg' : 'Non-Veg'}): ${item.description || 'No description'}`
+        `- [id=${item.id}] ${item.name} (₹${item.base_price}, ${item.is_veg ? 'Veg' : 'Non-Veg'}): ${item.description || 'No description'}`
       ).join('\n');
 
       const sys = `You are INARA's food recommendation AI. Suggest 1-3 best matching items from the menu based on the customer's craving. Be warm and enthusiastic.
@@ -182,11 +182,19 @@ serve(async (req) => {
 MENU:
 ${menuContext}
 
-Respond with JSON: { "message": "your friendly recommendation text", "suggestions": [{"id": "item_id", "name": "item name", "description": "why this is perfect", "price": number, "is_veg": boolean}] }`;
+Respond with JSON: { "message": "your friendly recommendation text", "suggestions": [{"id": "EXACT_UUID_FROM_MENU", "name": "item name", "description": "why this is perfect", "price": number, "is_veg": boolean}] }
+IMPORTANT: The "id" MUST be the exact UUID from [id=...] in the menu above. Never invent IDs or use slugs.`;
 
       const content = await callAI(query, sys, true);
       let parsed; try { parsed = JSON.parse(content); } catch { parsed = { message: content, suggestions: [] }; }
-      return jsonRes(parsed);
+      // Validate that returned IDs exist in the actual menu; if not, fall back
+      const validIds = new Set((menuItems || []).map((m: any) => m.id));
+      const cleanedSuggestions = (parsed.suggestions || []).filter((s: any) => validIds.has(s.id));
+      if (!cleanedSuggestions.length && (parsed.suggestions || []).length) {
+        // AI hallucinated IDs — use smart fallback instead
+        return jsonRes(smartFallback(query, menuItems));
+      }
+      return jsonRes({ ...parsed, suggestions: cleanedSuggestions });
     } catch (aiError) {
       console.error("AI unavailable, using smart fallback:", aiError);
       // Smart keyword-based fallback
