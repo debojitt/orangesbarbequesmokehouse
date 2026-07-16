@@ -82,7 +82,7 @@ const CartPage = () => {
           Browse Menu
         </Link>
         <Link to="/game" className="mt-4 px-6 py-2.5 bg-secondary text-foreground font-medium rounded-full ios-press border border-border">
-          🎮 Play BBQ Runner & Earn Free Food
+          Play Arcade & Earn Free Food
         </Link>
       </div>
     );
@@ -113,7 +113,7 @@ const CartPage = () => {
           onClick={() => haptic('selection')}
           className="block w-full text-center py-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-semibold ios-press premium-shine shadow-lg shadow-orange-500/20"
         >
-          🎮 Play BBQ Runner while you wait — earn free food!
+          Play Arcade while you wait — climb or bounce for free food!
         </Link>
       </div>
 

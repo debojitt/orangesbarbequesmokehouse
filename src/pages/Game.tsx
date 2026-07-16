@@ -1,41 +1,52 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Play, RotateCw, Home, Volume2, VolumeX, Sparkles, Gauge } from "lucide-react";
-import SmokehouseSprint from "@/components/game/SmokehouseSprint";
 import {
-  REWARD_TIERS,
+  ArrowLeft, Play, RotateCw, Home, Volume2, VolumeX, Sparkles, Mountain, Pause, Hand, CircleDot,
+} from "lucide-react";
+import PotOfGlory from "@/components/game/PotOfGlory";
+import BounceBall from "@/components/game/BounceBall";
+import {
+  GameId,
   fetchLeaderboard,
   getStoredHighScore,
   setStoredHighScore,
   getStoredName,
   setStoredName,
   submitScore,
-  tiersUnlockedFor,
-  nextTierFor,
   unlockRewardsForCustomer,
+  hasSeenClimbTutorial,
+  markClimbTutorialSeen,
+  tiersForGame,
 } from "@/lib/game-rewards";
 import { useCustomer } from "@/contexts/CustomerContext";
 import { haptic } from "@/lib/haptics";
 import { toast } from "sonner";
 
-type Phase = "menu" | "playing" | "gameover";
+type Phase = "select" | "tutorial" | "playing" | "gameover";
 type Tab = "game" | "leaderboard" | "rewards";
-
 interface ScoreRow { display_name: string; score: number; created_at: string }
 
 const GamePage = () => {
   const { customer } = useCustomer();
-  const [phase, setPhase] = useState<Phase>("menu");
+  const [phase, setPhase] = useState<Phase>("select");
   const [tab, setTab] = useState<Tab>("game");
+  const [activeGame, setActiveGame] = useState<GameId>("climb");
   const [score, setScore] = useState(0);
-  const [level, setLevel] = useState(1);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("bbq_game_sound") !== "off");
-  const [best, setBest] = useState(getStoredHighScore());
+  const [bestClimb, setBestClimb] = useState(getStoredHighScore("climb"));
+  const [bestBounce, setBestBounce] = useState(getStoredHighScore("bounce"));
   const [name, setName] = useState(getStoredName() || customer?.name || "");
   const [scores, setScores] = useState<ScoreRow[]>([]);
   const [scope, setScope] = useState<"all" | "week">("all");
   const submittedRef = useRef(false);
   const rewardShownRef = useRef<Set<number>>(new Set());
+  const gameScreenRef = useRef<HTMLDivElement>(null);
+  const phaseRef = useRef<Phase>(phase);
+  const fullscreenSessionRef = useRef(false);
+  const endingRef = useRef(false);
+
+  const best = activeGame === "climb" ? bestClimb : bestBounce;
+  const tiers = tiersForGame(activeGame);
 
   const loadBoard = useCallback(async () => {
     const rows = await fetchLeaderboard(scope);
@@ -43,36 +54,101 @@ const GamePage = () => {
   }, [scope]);
 
   useEffect(() => { loadBoard(); }, [loadBoard]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  const startGame = () => {
-    if (!name.trim()) {
-      const n = prompt("What name should we show on the leaderboard?")?.trim();
-      if (!n) return;
-      setName(n); setStoredName(n);
-    }
-    submittedRef.current = false;
-    rewardShownRef.current = new Set();
-    setScore(0);
-    setLevel(1);
-    setPhase("playing");
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && fullscreenSessionRef.current) {
+        fullscreenSessionRef.current = false;
+        if (phaseRef.current === "playing" && !endingRef.current) {
+          setPhase("select");
+          haptic("selection");
+        }
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const enterPhoneFullscreen = () => {
+    const isPhone = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 768;
+    const element = gameScreenRef.current;
+    if (!isPhone || !element?.requestFullscreen || document.fullscreenElement) return;
+    fullscreenSessionRef.current = true;
+    void element.requestFullscreen().catch(() => {
+      fullscreenSessionRef.current = false;
+    });
+  };
+
+  const exitFullscreen = () => {
+    fullscreenSessionRef.current = false;
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+  };
+
+  const returnToGameMenu = () => {
+    endingRef.current = false;
+    exitFullscreen();
+    setPhase("select");
     setTab("game");
     haptic("selection");
   };
 
+  const ensureName = () => {
+    if (name.trim()) return true;
+    const n = prompt("What name should we show on the leaderboard?")?.trim();
+    if (!n) return false;
+    setName(n);
+    setStoredName(n);
+    return true;
+  };
+
+  const beginPlaying = (game: GameId) => {
+    if (!ensureName()) return;
+    endingRef.current = false;
+    submittedRef.current = false;
+    rewardShownRef.current = new Set();
+    setActiveGame(game);
+    setScore(0);
+    setTab("game");
+    if (game === "climb" && !hasSeenClimbTutorial()) {
+      setPhase("tutorial");
+      return;
+    }
+    setPhase("playing");
+    enterPhoneFullscreen();
+    haptic("selection");
+  };
+
+  const finishTutorialAndPlay = () => {
+    markClimbTutorialSeen();
+    setPhase("playing");
+    enterPhoneFullscreen();
+    haptic("selection");
+  };
+
   const handleGameOver = async (finalScore: number) => {
+    if (endingRef.current) return;
+    endingRef.current = true;
+    exitFullscreen();
     setPhase("gameover");
-    haptic("error");
-    if (finalScore > best) {
-      setBest(finalScore);
-      setStoredHighScore(finalScore);
+    setScore(finalScore);
+    if (activeGame === "climb") {
+      if (finalScore > bestClimb) {
+        setBestClimb(finalScore);
+        setStoredHighScore(finalScore, "climb");
+      }
+    } else if (finalScore > bestBounce) {
+      setBestBounce(finalScore);
+      setStoredHighScore(finalScore, "bounce");
     }
     if (!submittedRef.current) {
       submittedRef.current = true;
       try {
-        await submitScore(name || "Guest", finalScore, customer?.id ?? null);
+        const tag = activeGame === "climb" ? "🧗" : "🔴";
+        await submitScore(`${tag}${name || "Guest"}`, finalScore, customer?.id ?? null);
         if (customer?.id) {
-          const tiers = await unlockRewardsForCustomer(customer.id, finalScore);
-          tiers.forEach((t) => toast.success(`${t.emoji} Reward unlocked: ${t.label}!`));
+          const unlockedTiers = await unlockRewardsForCustomer(customer.id, finalScore, activeGame);
+          unlockedTiers.forEach((t) => toast.success(`${t.emoji} Reward unlocked: ${t.label}!`));
         }
         loadBoard();
       } catch { /* ignore */ }
@@ -81,22 +157,19 @@ const GamePage = () => {
 
   const handleScoreChange = (s: number) => {
     setScore(s);
-    // Announce mid-game tier crossings
-    REWARD_TIERS.forEach((t) => {
+    tiers.forEach((t) => {
       if (s >= t.threshold && !rewardShownRef.current.has(t.threshold)) {
         rewardShownRef.current.add(t.threshold);
-        toast.success(`${t.emoji} ${t.label} unlocked at ${t.threshold}!`);
+        toast.success(`${t.emoji} ${t.label} unlocked!`);
         haptic("success");
       }
     });
   };
 
-  const next = nextTierFor(score);
-  const unlocked = tiersUnlockedFor(Math.max(score, best));
-  const difficultyLabel = level < 3 ? "Easy" : level < 6 ? "Spicy" : level < 9 ? "Blazing" : "Inferno";
-  const tierProgress = next
-    ? Math.min(100, (score / next.threshold) * 100)
-    : 100;
+  const next = tiers.find((t) => score < t.threshold) ?? null;
+  const unlocked = tiers.filter((t) => Math.max(score, best) >= t.threshold);
+  const tierProgress = next ? Math.min(100, (score / next.threshold) * 100) : 100;
+  const isImmersive = phase === "playing" || phase === "tutorial";
 
   const toggleSound = () => {
     const enabled = !soundEnabled;
@@ -107,6 +180,7 @@ const GamePage = () => {
 
   return (
     <div
+      ref={gameScreenRef}
       className="fixed inset-0 flex flex-col overflow-hidden bg-[#160d1d] text-white"
       style={{ height: "100dvh" }}
     >
@@ -114,15 +188,17 @@ const GamePage = () => {
         <div className="absolute -left-24 -top-24 h-80 w-80 rounded-full bg-orange-500/20 blur-3xl" />
         <div className="absolute -bottom-40 -right-24 h-96 w-96 rounded-full bg-fuchsia-700/20 blur-3xl" />
       </div>
-      {/* header */}
-      <header className="relative z-10 flex items-center justify-between border-b border-white/10 bg-black/20 px-4 py-3 backdrop-blur-xl flex-shrink-0"
-        style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
+
+      <header
+        className={`${isImmersive ? "hidden" : "flex"} relative z-10 items-center justify-between border-b border-white/10 bg-black/20 px-4 py-3 backdrop-blur-xl flex-shrink-0`}
+        style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
+      >
         <Link to="/" onClick={() => haptic("selection")} aria-label="Back to main menu" className="ios-press -ml-1 rounded-xl border border-white/10 bg-white/5 p-2 hover:bg-white/10">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="text-center">
-          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-300">Orange's</p>
-          <h1 className="font-display text-lg font-black tracking-wider text-white">SMOKEHOUSE SPRINT</h1>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-300">Orange&apos;s</p>
+          <h1 className="font-display text-lg font-black tracking-wider text-white">ARCADE</h1>
         </div>
         <button
           onClick={toggleSound}
@@ -133,118 +209,199 @@ const GamePage = () => {
         </button>
       </header>
 
-      {/* tabs */}
-      <div className="relative z-10 flex gap-1 px-4 pt-3 flex-shrink-0">
+      <div className={`${isImmersive ? "hidden" : "flex"} relative z-10 gap-1 px-4 pt-3 flex-shrink-0`}>
         {(["game", "leaderboard", "rewards"] as Tab[]).map((t) => (
           <button
             key={t}
-            onClick={() => { setTab(t); haptic("selection"); if (t === "leaderboard") loadBoard(); }}
+            onClick={() => { exitFullscreen(); setTab(t); haptic("selection"); if (t === "leaderboard") loadBoard(); }}
             className={`flex-1 rounded-xl border py-2.5 text-xs font-bold capitalize transition-all duration-300 ios-press ${
               tab === t
                 ? "border-orange-300/50 bg-gradient-to-r from-orange-500 to-amber-400 text-[#2a1210] shadow-[0_0_24px_rgba(249,115,22,.28)]"
                 : "border-white/10 bg-white/5 text-white/65 hover:bg-white/10"
             }`}
           >
-            {t === "leaderboard" ? "🏆 Leaders" : t === "rewards" ? "🎁 Rewards" : "🎮 Play"}
+            {t === "leaderboard" ? "Leaders" : t === "rewards" ? "Rewards" : "Play"}
           </button>
         ))}
       </div>
 
-      {/* body */}
       <div className="relative z-10 flex-1 min-h-0 overflow-hidden">
         {tab === "game" && (
           <div className="absolute inset-0 flex flex-col">
-            {/* score bar */}
-            <div className="flex flex-shrink-0 items-center gap-2 px-4 py-2.5 text-xs">
-              <div className="min-w-[92px] rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-white/45">Score</span>
-                <b className="font-mono text-xl leading-none text-white">{score}</b>
-              </div>
-              <div className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1 font-bold text-orange-200">
-                    <Gauge className="h-3 w-3" /> Lv. {level} · {difficultyLabel}
+            {(phase === "playing" || phase === "gameover") && (
+              <div className={`${phase === "playing" ? "pointer-events-none absolute left-2 top-2 z-20 w-[calc(100%-140px)] p-0" : "flex-shrink-0 px-4 py-2.5"} flex items-center gap-2 text-xs`}>
+                <div className="min-w-[92px] rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 backdrop-blur-md">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-white/45">
+                    {activeGame === "climb" ? "Height" : "Score"}
                   </span>
-                  <span className="text-white/45">Best {best}</span>
+                  <b className="font-mono text-xl leading-none text-white">
+                    {score}{activeGame === "climb" ? "m" : ""}
+                  </b>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-black/25">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-orange-500 to-yellow-300 transition-[width] duration-300"
-                    style={{ width: `${tierProgress}%` }}
-                  />
-                </div>
+                {phase !== "playing" && (
+                  <div className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1 font-bold text-orange-200">
+                        {activeGame === "climb" ? <Mountain className="h-3 w-3" /> : <CircleDot className="h-3 w-3" />}
+                        {next ? `Next @ ${next.threshold}${activeGame === "climb" ? "m" : ""}` : "Max rewards"}
+                      </span>
+                      <span className="text-white/45">Best {best}{activeGame === "climb" ? "m" : ""}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-black/25">
+                      <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-yellow-300" style={{ width: `${tierProgress}%` }} />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-            {/* canvas */}
-            <div className="relative mx-3 mb-3 flex-1 min-h-0 overflow-hidden rounded-[24px] border border-orange-300/30 bg-[#281146] shadow-[0_18px_55px_rgba(0,0,0,.5),inset_0_0_0_1px_rgba(255,255,255,.08)]">
-              <SmokehouseSprint
-                running={phase === "playing"}
-                soundEnabled={soundEnabled}
-                onGameOver={handleGameOver}
-                onScoreChange={handleScoreChange}
-                onLevelChange={setLevel}
-              />
-              {phase === "playing" && (
-                <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2 text-[10px] font-bold text-white/65">
-                  <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1.5 backdrop-blur-md">↑ / TAP JUMP</span>
-                  <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1.5 backdrop-blur-md">↓ DUCK</span>
-                </div>
+            )}
+
+            <div className={`${phase === "playing" || phase === "tutorial" ? "m-0 rounded-none border-0" : "mx-3 mb-3 rounded-[24px] border border-orange-300/30"} relative flex-1 min-h-0 overflow-hidden bg-[#1a0b2e]`}>
+              {(phase === "playing" || phase === "gameover" || phase === "tutorial") && (
+                activeGame === "climb" ? (
+                  <PotOfGlory
+                    running={phase === "playing"}
+                    soundEnabled={soundEnabled}
+                    onGameOver={handleGameOver}
+                    onScoreChange={handleScoreChange}
+                  />
+                ) : (
+                  <BounceBall
+                    running={phase === "playing"}
+                    soundEnabled={soundEnabled}
+                    onGameOver={handleGameOver}
+                    onScoreChange={handleScoreChange}
+                  />
+                )
               )}
-              {phase !== "playing" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-[#120915]/55 p-4 backdrop-blur-[3px]">
-                  <div className="ios-spring-in w-full max-w-sm overflow-hidden rounded-[28px] border border-white/15 bg-[#251429]/90 p-6 text-center shadow-2xl backdrop-blur-xl">
-                    {phase === "menu" ? (
-                      <>
-                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-400 to-red-600 text-3xl shadow-[0_0_28px_rgba(249,115,22,.45)]">👨‍🍳</div>
-                        <p className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.25em] text-orange-300">
-                          <Sparkles className="h-3 w-3" /> The dinner rush begins
-                        </p>
-                        <h2 className="font-display mb-2 text-3xl font-black text-white">Ready, Chef?</h2>
-                        <p className="mb-4 text-xs leading-relaxed text-white/60">
-                          Jump flames and crates, duck under hot trays, and collect coins. The kitchen gets faster every level.
-                        </p>
-                        <div className="mb-4 grid grid-cols-3 gap-2 text-[10px]">
-                          <div className="rounded-xl border border-white/10 bg-white/5 p-2"><b className="block text-base">🔥</b>Jump</div>
-                          <div className="rounded-xl border border-white/10 bg-white/5 p-2"><b className="block text-base">🍽️</b>Duck</div>
-                          <div className="rounded-xl border border-white/10 bg-white/5 p-2"><b className="block text-base">🪙</b>Collect</div>
-                        </div>
-                        <button onClick={startGame} className="premium-shine ios-press flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-400 py-3.5 font-black text-[#2a1210] shadow-[0_10px_30px_rgba(249,115,22,.35)]">
-                          <Play className="w-4 h-4 fill-current" /> START THE RUSH
-                        </button>
-                      </>
+
+              {phase === "playing" && (
+                <>
+                  <button
+                    onClick={returnToGameMenu}
+                    className="ios-press absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-xl border border-white/15 bg-black/50 px-3 py-2 text-[10px] font-bold text-white backdrop-blur-md"
+                    aria-label="Pause and exit to game menu"
+                  >
+                    <Pause className="h-3.5 w-3.5 fill-current" /> EXIT
+                  </button>
+                  <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2 text-[10px] font-bold text-white/70">
+                    {activeGame === "climb" ? (
+                      <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-md">HOLD & DRAG TO PULL FORK</span>
                     ) : (
                       <>
-                        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.28em] text-orange-300">Rush complete</p>
-                        <h2 className="font-display mb-1 text-3xl font-black text-white">Kitchen Closed!</h2>
-                        <p className="my-2 bg-gradient-to-b from-yellow-200 to-orange-400 bg-clip-text text-6xl font-black text-transparent">{score}</p>
-                        <p className="mb-4 text-xs text-white/55">
-                          Best: {best} {score >= best && score > 0 && "· 🎉 New high score!"}
-                        </p>
-                        {unlocked.length > 0 && (
-                          <div className="bg-orange-100/60 border border-orange-200 rounded-xl p-2 mb-3 text-left">
-                            <p className="text-[11px] font-semibold text-orange-800 mb-1">Rewards unlocked:</p>
-                            {unlocked.map((r) => (
-                              <p key={r.threshold} className="text-xs text-orange-900">
-                                {r.emoji} {r.label}
-                              </p>
-                            ))}
-                            {!customer?.id && (
-                              <p className="text-[10px] text-orange-700 mt-1">
-                                Sign up on Loyalty page to save rewards!
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <button onClick={startGame} className="ios-press flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 py-3 font-bold text-[#2a1210]">
-                            <RotateCw className="w-4 h-4" /> Play Again
-                          </button>
-                          <button onClick={() => setPhase("menu")} className="ios-press flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-3 font-bold text-white hover:bg-white/10">
-                            <Home className="w-4 h-4" /> Menu
-                          </button>
-                        </div>
+                        <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5">◀ LEFT</span>
+                        <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5">TAP CENTER BOUNCE</span>
+                        <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5">RIGHT ▶</span>
                       </>
                     )}
+                  </div>
+                </>
+              )}
+
+              {phase === "select" && (
+                <div className="absolute inset-0 overflow-y-auto p-4">
+                  <div className="mx-auto max-w-md space-y-4 pb-6">
+                    <div className="text-center pt-2">
+                      <p className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.25em] text-orange-300">
+                        <Sparkles className="h-3 w-3" /> Pick a game
+                      </p>
+                      <h2 className="font-display text-3xl font-black text-white">Smokehouse Arcade</h2>
+                      <p className="mt-2 text-xs text-white/55">Two originals — climb with real physics, or bounce like classic Nokia Bounce.</p>
+                    </div>
+
+                    <button
+                      onClick={() => beginPlaying("climb")}
+                      className="ios-press w-full rounded-3xl border border-orange-300/30 bg-gradient-to-br from-[#3a1a2a] to-[#1a0b2e] p-5 text-left shadow-xl"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/20 text-2xl">🍲</div>
+                        <div>
+                          <h3 className="font-display text-xl font-black text-white">Pot of Glory</h3>
+                          <p className="text-[11px] text-orange-200">Physics climber · Best {bestClimb}m</p>
+                        </div>
+                      </div>
+                      <p className="text-xs leading-relaxed text-white/60">
+                        Grab and pull the fork tip. Use momentum to climb the smokehouse. Fall to the pit and the run ends.
+                      </p>
+                      <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-orange-100">
+                        <Hand className="h-3.5 w-3.5" /> Touch & drag pull controls
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => beginPlaying("bounce")}
+                      className="ios-press w-full rounded-3xl border border-cyan-300/25 bg-gradient-to-br from-[#12344a] to-[#0f1b2e] p-5 text-left shadow-xl"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/25 text-2xl">🔴</div>
+                        <div>
+                          <h3 className="font-display text-xl font-black text-white">Meatball Bounce</h3>
+                          <p className="text-[11px] text-cyan-200">Nokia Bounce style · Best {bestBounce}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs leading-relaxed text-white/60">
+                        Guide a bouncing meatball through platforms, collect golden rings, avoid spikes. Addictive and smooth.
+                      </p>
+                      <div className="mt-3 text-[10px] font-bold text-cyan-100">Tap zones: Left · Bounce · Right</div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {phase === "tutorial" && (
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#120915]/75 p-4 backdrop-blur-sm">
+                  <div className="w-full max-w-sm rounded-[28px] border border-white/15 bg-[#251429]/95 p-6 text-center shadow-2xl">
+                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/25 text-3xl">👆</div>
+                    <h2 className="font-display mb-2 text-2xl font-black text-white">How to Climb</h2>
+                    <ol className="mb-4 space-y-2 text-left text-xs text-white/70">
+                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">1. Touch</b> near the fork tip (or anywhere on screen).</li>
+                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">2. Drag / pull</b> — the fork tip follows your finger like a lever.</li>
+                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">3. Hook ledges</b> and swing up. Momentum is everything.</li>
+                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">4. Don&apos;t fall</b> back into the pit or the run ends.</li>
+                    </ol>
+                    <button onClick={finishTutorialAndPlay} className="ios-press flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-400 py-3.5 font-black text-[#2a1210]">
+                      <Play className="h-4 w-4 fill-current" /> GOT IT — CLIMB
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {phase === "gameover" && (
+                <div className="absolute inset-0 flex items-center justify-center bg-[#120915]/55 p-4 backdrop-blur-[3px]">
+                  <div className="ios-spring-in w-full max-w-sm overflow-hidden rounded-[28px] border border-white/15 bg-[#251429]/90 p-6 text-center shadow-2xl backdrop-blur-xl">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.28em] text-orange-300">
+                      {activeGame === "climb" ? "Back in the pit" : "Spike / fall"}
+                    </p>
+                    <h2 className="font-display mb-1 text-3xl font-black text-white">
+                      {activeGame === "climb" ? "Climb Over!" : "Bounce Over!"}
+                    </h2>
+                    <p className="my-2 bg-gradient-to-b from-yellow-200 to-orange-400 bg-clip-text text-6xl font-black text-transparent">
+                      {score}{activeGame === "climb" ? "m" : ""}
+                    </p>
+                    <p className="mb-4 text-xs text-white/55">
+                      Best: {best}{activeGame === "climb" ? "m" : ""} {score >= best && score > 0 && "· New record!"}
+                    </p>
+                    {unlocked.length > 0 && (
+                      <div className="mb-3 rounded-xl border border-orange-200 bg-orange-100/60 p-2 text-left">
+                        <p className="mb-1 text-[11px] font-semibold text-orange-800">Rewards unlocked:</p>
+                        {unlocked.map((r) => (
+                          <p key={r.threshold} className="text-xs text-orange-900">{r.emoji} {r.label}</p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => beginPlaying(activeGame)}
+                        className="ios-press flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 py-3 font-bold text-[#2a1210]"
+                      >
+                        <RotateCw className="w-4 h-4" /> Again
+                      </button>
+                      <button
+                        onClick={returnToGameMenu}
+                        className="ios-press flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-3 font-bold text-white hover:bg-white/10"
+                      >
+                        <Home className="w-4 h-4" /> Games
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -254,12 +411,12 @@ const GamePage = () => {
 
         {tab === "leaderboard" && (
           <div className="absolute inset-0 overflow-y-auto px-4 pb-6">
-            <div className="flex gap-1 mb-3">
+            <div className="mb-3 flex gap-1">
               {(["all", "week"] as const).map((sc) => (
                 <button
                   key={sc}
                   onClick={() => setScope(sc)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium ios-press ${
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-medium ios-press ${
                     scope === sc ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
                   }`}
                 >
@@ -269,20 +426,13 @@ const GamePage = () => {
             </div>
             <div className="space-y-1.5">
               {scores.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-8">No scores yet — be first!</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">No scores yet — be first!</p>
               )}
               {scores.map((s, i) => (
-                <div key={i} className={`flex items-center justify-between px-3 py-2.5 rounded-xl ios-card ${i < 3 ? "border-orange-300" : ""}`}>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                      i === 0 ? "bg-yellow-400 text-white" :
-                      i === 1 ? "bg-gray-300 text-white" :
-                      i === 2 ? "bg-orange-400 text-white" :
-                      "bg-secondary text-muted-foreground"
-                    }`}>
-                      {i === 0 ? "👑" : i + 1}
-                    </span>
-                    <span className="font-medium text-sm truncate">{s.display_name}</span>
+                <div key={i} className={`ios-card flex items-center justify-between rounded-xl px-3 py-2.5 ${i < 3 ? "border-orange-300" : ""}`}>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-bold text-muted-foreground">{i + 1}</span>
+                    <span className="truncate text-sm font-medium">{s.display_name}</span>
                   </div>
                   <span className="font-mono text-sm font-bold text-primary">{s.score}</span>
                 </div>
@@ -293,21 +443,39 @@ const GamePage = () => {
 
         {tab === "rewards" && (
           <div className="absolute inset-0 overflow-y-auto px-4 pb-6">
-            <p className="text-xs text-muted-foreground mb-3">
-              Beat these scores to unlock free food & drinks. Show the reward at the counter.
+            <div className="mb-3 flex gap-1">
+              {([
+                { id: "climb" as const, label: "Climb" },
+                { id: "bounce" as const, label: "Bounce" },
+              ]).map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => setActiveGame(g.id)}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-medium ios-press ${
+                    activeGame === g.id ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+                  }`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Reach these scores in {activeGame === "climb" ? "Pot of Glory" : "Meatball Bounce"} to unlock free food.
             </p>
             <div className="space-y-2">
-              {REWARD_TIERS.map((t) => {
+              {tiers.map((t) => {
                 const done = best >= t.threshold;
                 return (
-                  <div key={t.threshold} className={`ios-card p-3 flex items-center gap-3 ${done ? "border-orange-400 bg-orange-50" : ""}`}>
+                  <div key={t.threshold} className={`ios-card flex items-center gap-3 p-3 ${done ? "border-orange-400 bg-orange-50" : ""}`}>
                     <div className="text-3xl">{t.emoji}</div>
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className={`text-sm font-semibold ${done ? "text-orange-900" : "text-foreground"}`}>{t.label}</p>
-                      <p className="text-xs text-muted-foreground">Score {t.threshold}+</p>
+                      <p className="text-xs text-muted-foreground">
+                        {activeGame === "climb" ? `Height ${t.threshold}m+` : `Score ${t.threshold}+`}
+                      </p>
                     </div>
                     {done ? (
-                      <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded-full">UNLOCKED</span>
+                      <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">UNLOCKED</span>
                     ) : (
                       <span className="text-xs text-muted-foreground">{Math.max(0, t.threshold - best)} to go</span>
                     )}
@@ -315,11 +483,6 @@ const GamePage = () => {
                 );
               })}
             </div>
-            {!customer?.id && (
-              <div className="mt-4 p-3 rounded-xl bg-orange-100/60 border border-orange-200 text-xs text-orange-900">
-                💡 Sign up on the <Link to="/loyalty" className="font-bold underline">Loyalty</Link> page so your unlocked rewards are saved to your phone number and can be claimed at the counter.
-              </div>
-            )}
           </div>
         )}
       </div>
