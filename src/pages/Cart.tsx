@@ -107,6 +107,16 @@ const CartPage = () => {
         </div>
       </header>
 
+      <div className="px-4 pt-3">
+        <Link
+          to="/game"
+          onClick={() => haptic('selection')}
+          className="block w-full text-center py-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-semibold ios-press premium-shine shadow-lg shadow-orange-500/20"
+        >
+          🎮 Play BBQ Runner while you wait — earn free food!
+        </Link>
+      </div>
+
       <div className="px-4 py-4 space-y-3 stagger">
         {items.map((item) => (
           <div key={`${item.menuItemId}-${item.variantId || 'base'}`} className="ios-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
