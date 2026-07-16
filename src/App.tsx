@@ -18,6 +18,7 @@ import StaffMenuPage from "./pages/staff/StaffMenuPage";
 import StaffOffers from "./pages/staff/StaffOffers";
 import StaffLoyalty from "./pages/staff/StaffLoyalty";
 import StaffCoupons from "./pages/staff/StaffCoupons";
+import Game from "./pages/Game";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
                 <Route path="/review" element={<ReviewPage />} />
                 <Route path="/loyalty" element={<LoyaltyPage />} />
                 <Route path="/checkin/:cardId" element={<CheckIn />} />
+                <Route path="/game" element={<Game />} />
                 <Route path="/staff/login" element={<StaffLogin />} />
                 <Route path="/staff" element={<StaffLayout />}>
                   <Route path="dashboard" element={<StaffDashboard />} />

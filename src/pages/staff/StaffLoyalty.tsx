@@ -116,7 +116,7 @@ const StaffLoyalty = () => {
   });
 
   const sendWhatsApp = (phone: string, name: string) => {
-    const message = encodeURIComponent(`Hi ${name}! We miss you at INARA. Come visit us and enjoy your loyalty rewards! 🍽️`);
+    const message = encodeURIComponent(`Hi ${name}! We miss you at Orange's BBQ. Come visit us and enjoy your loyalty rewards! 🍽️`);
     window.open(`https://wa.me/91${phone.replace(/\D/g, '')}?text=${message}`, '_blank');
   };
 

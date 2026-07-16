@@ -138,7 +138,7 @@ const Index = () => {
             <button onClick={() => setShowSidebar(false)} className="absolute top-4 right-4 text-muted-foreground">
               <X className="w-5 h-5" />
             </button>
-            <h2 className="font-display text-2xl gold-text mb-8 mt-2">INARA</h2>
+            <h2 className="font-display text-2xl gold-text mb-8 mt-2">ORANGE'S BBQ</h2>
             <nav className="flex flex-col gap-1 flex-1">
               <Link to="/" onClick={() => setShowSidebar(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-foreground hover:bg-secondary text-sm font-medium">
                 <Search className="w-4 h-4" /> Menu
@@ -168,7 +168,7 @@ const Index = () => {
           <button onClick={() => setShowSidebar(true)} className="text-foreground p-1">
             <Menu className="w-5 h-5" />
           </button>
-          <h1 className="font-display text-xl tracking-widest gold-text">INARA</h1>
+          <h1 className="font-display text-xl tracking-widest gold-text">ORANGE'S BBQ</h1>
           <Link to="/cart" className="relative p-1">
             <ShoppingCart className="w-5 h-5 text-primary" />
             {itemCount > 0 && (

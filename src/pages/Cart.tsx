@@ -81,6 +81,9 @@ const CartPage = () => {
         <Link to="/" className="px-6 py-2.5 maroon-gradient text-primary-foreground font-medium rounded-full ios-press premium-shine">
           Browse Menu
         </Link>
+        <Link to="/game" className="mt-4 px-6 py-2.5 bg-secondary text-foreground font-medium rounded-full ios-press border border-border">
+          🎮 Play BBQ Runner & Earn Free Food
+        </Link>
       </div>
     );
   }
@@ -103,6 +106,16 @@ const CartPage = () => {
           </button>
         </div>
       </header>
+
+      <div className="px-4 pt-3">
+        <Link
+          to="/game"
+          onClick={() => haptic('selection')}
+          className="block w-full text-center py-2.5 rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-semibold ios-press premium-shine shadow-lg shadow-orange-500/20"
+        >
+          🎮 Play BBQ Runner while you wait — earn free food!
+        </Link>
+      </div>
 
       <div className="px-4 py-4 space-y-3 stagger">
         {items.map((item) => (

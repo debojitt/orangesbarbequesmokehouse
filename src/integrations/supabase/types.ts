@@ -270,6 +270,76 @@ export type Database = {
           },
         ]
       }
+      game_rewards: {
+        Row: {
+          claimed_at: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          is_claimed: boolean
+          reward_label: string
+          threshold: number
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_claimed?: boolean
+          reward_label: string
+          threshold: number
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_claimed?: boolean
+          reward_label?: string
+          threshold?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_rewards_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_scores: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          display_name: string
+          id: string
+          score: number
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          display_name: string
+          id?: string
+          score: number
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          display_name?: string
+          id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_scores_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_selections: {
         Row: {
           id: string
