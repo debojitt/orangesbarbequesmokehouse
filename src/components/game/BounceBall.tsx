@@ -77,36 +77,43 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     const platforms: Platform[] = [];
     const rings: Ring[] = [];
     const ground = h - 48;
-    platforms.push({ x: 0, y: ground, w: 260, h: 48, type: "safe" });
+    platforms.push({ x: 0, y: ground, w: 320, h: 48, type: "safe" });
 
-    let x = 280;
-    for (let i = 0; i < 42; i += 1) {
-      const gap = 70 + (i % 5) * 18;
-      const elev = ground - 40 - ((i * 37) % 160);
-      const pw = 90 + (i % 4) * 28;
-      const kind: Platform["type"] = i % 7 === 3 ? "spike" : i % 5 === 0 ? "bounce" : "safe";
-      platforms.push({ x, y: elev, w: pw, h: kind === "spike" ? 18 : 22, type: kind });
+    let x = 300;
+    for (let i = 0; i < 48; i += 1) {
+      // Easy early, then gaps shrink into near-miss territory
+      const progress = i / 48;
+      const gap = Math.max(42, 95 - progress * 55 + (i % 3) * 8);
+      const elev = ground - 30 - Math.min(150, progress * 140) - ((i * 29) % 40);
+      const pw = Math.max(78, 145 - progress * 55 + (i % 2) * 12);
+      let kind: Platform["type"] = "safe";
+      if (i > 8 && i % 8 === 4) kind = "spike";
+      else if (i % 6 === 0) kind = "bounce";
+      // Late spikes placed just after a bounce pad so you "almost" clear them
+      if (i > 22 && i % 9 === 2) kind = "spike";
+
+      platforms.push({ x, y: elev, w: pw, h: kind === "spike" ? 16 : 24, type: kind });
       if (kind !== "spike") {
-        rings.push({ x: x + pw / 2, y: elev - 42, r: 12, taken: false });
-        if (i % 3 === 0) rings.push({ x: x + pw / 2 + 30, y: elev - 90, r: 12, taken: false });
+        rings.push({ x: x + pw / 2, y: elev - 38, r: 13, taken: false });
+        if (i % 4 === 0) rings.push({ x: x + pw * 0.75, y: elev - 78, r: 12, taken: false });
       }
       x += pw + gap;
-      if (i % 6 === 5) {
-        platforms.push({ x: x - 40, y: elev - 110, w: 70, h: 18, type: "safe" });
-        rings.push({ x: x - 5, y: elev - 150, r: 12, taken: false });
+      if (i % 7 === 6) {
+        platforms.push({ x: x - 50, y: elev - 95, w: 88, h: 20, type: "safe" });
+        rings.push({ x: x - 6, y: elev - 135, r: 12, taken: false });
       }
     }
-    platforms.push({ x, y: ground - 20, w: 220, h: 40, type: "safe" });
+    platforms.push({ x, y: ground - 16, w: 260, h: 40, type: "safe" });
     return { platforms, rings, endX: x + 100 };
   };
 
   const reset = () => {
     const s = stateRef.current;
     const built = buildLevel(Math.max(s.width, 360), Math.max(s.height, 640));
-    s.x = 90;
-    s.y = Math.max(80, s.height * 0.35);
-    s.vx = 120;
-    s.vy = 0;
+    s.x = 100;
+    s.y = Math.max(90, s.height * 0.42);
+    s.vx = 150;
+    s.vy = -40;
     s.platforms = built.platforms;
     s.rings = built.rings;
     s.camX = 0;
@@ -195,29 +202,35 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       last = time;
 
       if (runningRef.current && !s.ended && !s.ending) {
-        const gravity = 1450;
-        const air = 0.995;
+        const gravity = 1180;
+        const air = 0.992;
         s.vy += gravity * dt;
-        s.vx += s.move * 780 * dt;
+        // Gentle auto-forward so play feels continuous; steer to fine-tune
+        s.vx += (95 + s.move * 920) * dt;
         s.vx *= air;
-        s.vx = Math.max(-340, Math.min(340, s.vx));
+        s.vx = Math.max(-280, Math.min(390, s.vx));
         s.x += s.vx * dt;
         s.y += s.vy * dt;
 
-        let onGround = false;
         for (const p of s.platforms) {
-          const withinX = s.x + s.r > p.x && s.x - s.r < p.x + p.w;
-          const wasAbove = s.y - s.vy * dt <= p.y - s.r + 2;
-          if (withinX && wasAbove && s.y + s.r >= p.y && s.y - s.r < p.y + p.h) {
+          const withinX = s.x + s.r * 0.85 > p.x && s.x - s.r * 0.85 < p.x + p.w;
+          const wasAbove = s.y - s.vy * dt <= p.y - s.r + 4;
+          if (withinX && wasAbove && s.y + s.r >= p.y && s.y - s.r < p.y + p.h + 6) {
             if (p.type === "spike") {
+              // Tiny forgiveness window on spike edges
+              const edge = Math.min(s.x - p.x, p.x + p.w - s.x);
+              if (edge < 10) {
+                s.y = p.y - s.r;
+                s.vy = -520;
+                continue;
+              }
               endRun();
               break;
             }
             s.y = p.y - s.r;
-            const bouncePower = p.type === "bounce" ? 780 : 560;
-            const boost = s.bounceBoost ? 180 : 0;
-            s.vy = -(bouncePower + boost + Math.min(120, Math.abs(s.vx) * 0.15));
-            onGround = true;
+            const bouncePower = p.type === "bounce" ? 820 : 620;
+            const boost = s.bounceBoost ? 220 : 40;
+            s.vy = -(bouncePower + boost + Math.min(90, Math.abs(s.vx) * 0.12));
             if (soundOnRef.current) sounds.bounce();
             try { haptic("selection"); } catch { /* ignore */ }
           }
@@ -238,10 +251,7 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
           }
         }
 
-        s.score = Math.max(s.score, Math.floor(s.x / 12) + s.ringsGot * 25);
-        if (!onGround) {
-          /* keep bouncing midair */
-        }
+        s.score = Math.max(s.score, Math.floor(s.x / 10) + s.ringsGot * 25);
 
         const rounded = Math.floor(s.score);
         if (rounded !== s.lastScore) {

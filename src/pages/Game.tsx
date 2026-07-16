@@ -319,9 +319,9 @@ const GamePage = () => {
                           <p className="text-[11px] text-orange-200">Physics climber · Best {bestClimb}m</p>
                         </div>
                       </div>
-                      <p className="text-xs leading-relaxed text-white/60">
-                        Grab and pull the fork tip. Use momentum to climb the smokehouse. Fall to the pit and the run ends.
-                      </p>
+                        <p className="text-xs leading-relaxed text-white/60">
+                          Hold and drag — the fork follows your finger. Early ledges are wide and friendly. Higher up gets tight so every miss feels like “one more try.”
+                        </p>
                       <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-orange-100">
                         <Hand className="h-3.5 w-3.5" /> Touch & drag pull controls
                       </div>
@@ -339,7 +339,7 @@ const GamePage = () => {
                         </div>
                       </div>
                       <p className="text-xs leading-relaxed text-white/60">
-                        Guide a bouncing meatball through platforms, collect golden rings, avoid spikes. Addictive and smooth.
+                        Easy bounce and steer at the start. Later spikes sit just past your jump so you keep thinking “almost!”
                       </p>
                       <div className="mt-3 text-[10px] font-bold text-cyan-100">Tap zones: Left · Bounce · Right</div>
                     </button>

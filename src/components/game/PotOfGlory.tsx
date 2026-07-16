@@ -16,9 +16,9 @@ interface TerrainMeta {
   label?: string;
 }
 
-const PX_PER_METER = 6;
-const FORK_LEN = 124;
-const POT_R = 26;
+const PX_PER_METER = 5.5;
+const FORK_LEN = 132;
+const POT_R = 24;
 
 const createSound = () => {
   let audio: AudioContext | null = null;
@@ -67,45 +67,46 @@ const block = (x: number, y: number, w: number, h: number, kind: TerrainKind, an
 
 const buildMountain = (startX: number, startY: number) => {
   const parts: Matter.Body[] = [];
-  parts.push(block(startX, startY + 110, 460, 48, "stone"));
-  parts.push(block(startX - 210, startY - 30, 44, 300, "stone"));
-  parts.push(block(startX + 210, startY - 30, 44, 300, "stone"));
-  parts.push(block(startX - 70, startY + 10, 96, 24, "wood", -0.18));
-  parts.push(block(startX + 90, startY - 20, 108, 22, "crate", 0.12));
+  // Room to learn — wide pit floor and gentle first steps
+  parts.push(block(startX, startY + 110, 480, 50, "stone"));
+  parts.push(block(startX - 220, startY - 20, 48, 280, "stone"));
+  parts.push(block(startX + 220, startY - 20, 48, 280, "stone"));
+  parts.push(block(startX - 40, startY + 8, 140, 28, "wood", -0.08));
+  parts.push(block(startX + 110, startY - 55, 150, 26, "crate", 0.05));
+  parts.push(block(startX - 20, startY - 130, 160, 26, "grill", -0.06));
+  parts.push(block(startX + 140, startY - 210, 150, 26, "wood", 0.08));
+  parts.push(block(startX - 30, startY - 290, 170, 28, "stone", -0.04));
+  parts.push(block(startX + 130, startY - 380, 140, 26, "crate", 0.1));
+  parts.push(block(startX - 40, startY - 470, 160, 26, "wood", -0.08));
 
-  parts.push(block(startX + 170, startY - 130, 150, 26, "wood", -0.32));
-  parts.push(block(startX + 30, startY - 210, 128, 24, "grill", 0.08));
-  parts.push(block(startX - 110, startY - 280, 136, 24, "crate", -0.22));
-  parts.push(block(startX + 100, startY - 360, 116, 22, "metal", 0.38));
-  parts.push(block(startX + 220, startY - 450, 96, 22, "wood", -0.5));
-  parts.push(block(startX + 70, startY - 540, 156, 26, "stone", 0.04));
+  // Mid — still readable, slightly steeper "almost" gaps
+  parts.push(block(startX + 120, startY - 560, 130, 24, "grill", 0.18));
+  parts.push(block(startX - 60, startY - 640, 140, 24, "metal", -0.16));
+  parts.push(block(startX + 110, startY - 730, 120, 22, "crate", 0.22));
+  parts.push(block(startX - 40, startY - 820, 135, 24, "wood", -0.12));
+  parts.push(block(startX + 130, startY - 910, 115, 22, "stone", 0.2));
+  parts.push(block(startX - 20, startY - 1000, 145, 24, "grill", -0.18));
+  parts.push(block(startX + 100, startY - 1090, 110, 22, "crate", 0.28));
+  parts.push(block(startX - 50, startY - 1180, 140, 24, "wood", -0.1));
 
-  parts.push(block(startX - 50, startY - 620, 108, 22, "grill", -0.65));
-  parts.push(block(startX - 170, startY - 700, 84, 20, "metal", 0.18));
-  parts.push(block(startX - 30, startY - 790, 126, 22, "crate", 0.5));
-  parts.push(block(startX + 110, startY - 880, 74, 18, "wood", -0.12));
-  parts.push(block(startX + 210, startY - 970, 118, 24, "stone", 0.32));
-  parts.push(block(startX + 50, startY - 1060, 94, 20, "grill", -0.8));
-  parts.push(block(startX - 90, startY - 1150, 148, 26, "wood", 0.08));
+  // Late — narrow ledges that feel one-swing-away
+  parts.push(block(startX + 90, startY - 1280, 95, 20, "metal", 0.35));
+  parts.push(block(startX - 40, startY - 1380, 105, 20, "grill", -0.32));
+  parts.push(block(startX + 100, startY - 1480, 90, 18, "crate", 0.4));
+  parts.push(block(startX - 30, startY - 1580, 110, 20, "wood", -0.25));
+  parts.push(block(startX + 110, startY - 1680, 85, 18, "stone", 0.38));
+  parts.push(block(startX - 20, startY - 1780, 100, 20, "metal", -0.3));
+  parts.push(block(startX + 90, startY - 1880, 80, 18, "grill", 0.45));
+  parts.push(block(startX - 40, startY - 1980, 120, 22, "wood", -0.12));
+  parts.push(block(startX + 100, startY - 2080, 75, 18, "crate", 0.5));
+  parts.push(block(startX - 10, startY - 2180, 115, 22, "stone", -0.18));
+  parts.push(block(startX + 80, startY - 2280, 90, 18, "metal", 0.42));
+  parts.push(block(startX - 30, startY - 2380, 130, 24, "wood", -0.08));
+  parts.push(block(startX + 40, startY - 2480, 160, 28, "stone", 0, "SUMMIT"));
+  parts.push(block(startX + 40, startY - 2540, 44, 80, "metal"));
 
-  parts.push(block(startX + 50, startY - 1260, 64, 18, "metal", 0.85));
-  parts.push(block(startX + 160, startY - 1360, 108, 22, "crate", -0.28));
-  parts.push(block(startX + 30, startY - 1470, 86, 20, "wood", 0.42));
-  parts.push(block(startX - 100, startY - 1580, 128, 24, "stone", -0.18));
-  parts.push(block(startX + 80, startY - 1690, 74, 18, "grill", 0.7));
-  parts.push(block(startX + 190, startY - 1800, 96, 20, "metal", -0.38));
-  parts.push(block(startX + 40, startY - 1920, 168, 28, "wood", 0.04));
-
-  parts.push(block(startX - 70, startY - 2050, 84, 18, "crate", -0.9));
-  parts.push(block(startX + 70, startY - 2160, 108, 22, "stone", 0.22));
-  parts.push(block(startX + 190, startY - 2280, 74, 18, "grill", -0.48));
-  parts.push(block(startX + 40, startY - 2400, 96, 20, "metal", 0.55));
-  parts.push(block(startX - 90, startY - 2520, 118, 22, "wood", -0.12));
-  parts.push(block(startX + 40, startY - 2640, 150, 26, "stone", 0, "SUMMIT"));
-  parts.push(block(startX + 40, startY - 2700, 42, 84, "metal"));
-
-  parts.push(block(startX - 360, startY - 1300, 54, 3000, "stone"));
-  parts.push(block(startX + 400, startY - 1300, 54, 3000, "stone"));
+  parts.push(block(startX - 360, startY - 1200, 54, 2800, "stone"));
+  parts.push(block(startX + 400, startY - 1200, 54, 2800, "stone"));
   return parts;
 };
 
@@ -163,28 +164,28 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     destroyEngine();
 
     const engine = Matter.Engine.create({
-      gravity: { x: 0, y: 1, scale: 0.001 },
+      gravity: { x: 0, y: 0.88, scale: 0.001 },
       enableSleeping: false,
     });
-    engine.positionIterations = 8;
-    engine.velocityIterations = 6;
+    engine.positionIterations = 10;
+    engine.velocityIterations = 8;
 
     const startX = 200;
     const startY = 2500;
     const playerGroup = Matter.Body.nextGroup(true);
 
     const pot = Matter.Bodies.circle(startX, startY, POT_R, {
-      density: 0.0032,
-      friction: 0.55,
-      frictionAir: 0.02,
-      restitution: 0.05,
+      density: 0.0026,
+      friction: 0.7,
+      frictionAir: 0.028,
+      restitution: 0.04,
       label: "pot",
       collisionFilter: { group: playerGroup },
     });
-    const fork = Matter.Bodies.rectangle(startX + FORK_LEN * 0.42, startY, FORK_LEN, 11, {
-      density: 0.0014,
-      friction: 1.1,
-      frictionAir: 0.015,
+    const fork = Matter.Bodies.rectangle(startX + FORK_LEN * 0.42, startY, FORK_LEN, 12, {
+      density: 0.001,
+      friction: 1.35,
+      frictionAir: 0.012,
       restitution: 0.02,
       label: "fork",
       chamfer: { radius: 3 },
@@ -196,7 +197,7 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       pointA: { x: 0, y: 0 },
       pointB: { x: -FORK_LEN * 0.42, y: 0 },
       stiffness: 1,
-      damping: 0.08,
+      damping: 0.05,
       length: 0,
     });
 
@@ -427,7 +428,7 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       }
 
       if (runningRef.current && !w.ended && !w.ending) {
-        // Tag & pull: drag tip of fork toward finger
+        // Simple tag & pull: fork tip follows finger with strong, readable leverage
         if (w.dragging) {
           const tip = tipOfFork();
           const dx = w.pointerX - w.pot.position.x;
@@ -440,25 +441,24 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
           const pullX = w.pointerX - tip.x;
           const pullY = w.pointerY - tip.y;
           const pullDist = Math.hypot(pullX, pullY);
-          const strength = Math.min(1.1, pullDist / 90);
+          const strength = Math.min(1.35, 0.45 + pullDist / 70);
 
           Matter.Body.setAngularVelocity(
             w.fork,
-            w.fork.angularVelocity * 0.78 + Math.max(-0.65, Math.min(0.65, diff * 0.28 * strength)),
+            w.fork.angularVelocity * 0.62 + Math.max(-0.85, Math.min(0.85, diff * 0.42 * strength)),
           );
 
-          // Reaction forces from levering against the world
-          const forceScale = 0.00055 * strength;
+          const forceScale = 0.00085 * strength;
           Matter.Body.applyForce(w.pot, w.pot.position, {
             x: -Math.sin(w.fork.angle) * diff * forceScale,
-            y: Math.cos(w.fork.angle) * diff * forceScale * 0.55,
+            y: Math.cos(w.fork.angle) * diff * forceScale * 0.72,
           });
           Matter.Body.applyForce(w.fork, tip, {
-            x: pullX * 0.000018,
-            y: pullY * 0.000018,
+            x: pullX * 0.000032,
+            y: pullY * 0.000032,
           });
         } else {
-          Matter.Body.setAngularVelocity(w.fork, w.fork.angularVelocity * 0.96);
+          Matter.Body.setAngularVelocity(w.fork, w.fork.angularVelocity * 0.94);
         }
 
         const delta = lastFrame ? Math.min(22, time - lastFrame) : 1000 / 60;
@@ -480,7 +480,7 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
         const heightM = Math.max(0, (w.startY - w.pot.position.y) / PX_PER_METER);
         if (heightM > w.maxHeight) {
           w.maxHeight = heightM;
-          if (heightM > 6) w.climbed = true;
+          if (heightM > 18) w.climbed = true;
         }
         const rounded = Math.floor(w.maxHeight);
         if (rounded !== w.lastScore) {
@@ -488,12 +488,13 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
           scoreRef.current(rounded);
         }
 
-        w.camX += (w.pot.position.x - w.camX) * 0.1;
-        w.camY += (w.pot.position.y - w.camY) * 0.1;
+        w.camX += (w.pot.position.x - w.camX) * 0.12;
+        w.camY += (w.pot.position.y - w.camY) * 0.12;
         w.shake = Math.max(0, w.shake - 0.025);
 
-        if (w.climbed && w.pot.position.y > w.startY + 40) endRun("fall");
-        if (w.pot.position.y < w.startY - 2660) endRun("summit");
+        // Only end after a real climb — early slips are recoverable
+        if (w.climbed && w.pot.position.y > w.startY + 55) endRun("fall");
+        if (w.pot.position.y < w.startY - 2500) endRun("summit");
       }
 
       lastFrame = time;

@@ -9,17 +9,17 @@ export interface RewardTier {
 export type GameId = "climb" | "bounce";
 
 export const REWARD_TIERS: RewardTier[] = [
-  { threshold: 50, label: "Free Dessert", emoji: "🍰" },
-  { threshold: 120, label: "Free Garlic Bread", emoji: "🥖" },
-  { threshold: 220, label: "Free Virgin Mojito", emoji: "🍹" },
-  { threshold: 400, label: "10% Off Your Bill", emoji: "🎟️" },
+  { threshold: 40, label: "Free Dessert", emoji: "🍰" },
+  { threshold: 100, label: "Free Garlic Bread", emoji: "🥖" },
+  { threshold: 180, label: "Free Virgin Mojito", emoji: "🍹" },
+  { threshold: 320, label: "10% Off Your Bill", emoji: "🎟️" },
 ];
 
 export const BOUNCE_REWARD_TIERS: RewardTier[] = [
-  { threshold: 80, label: "Free Dessert", emoji: "🍰" },
-  { threshold: 200, label: "Free Garlic Bread", emoji: "🥖" },
-  { threshold: 400, label: "Free Virgin Mojito", emoji: "🍹" },
-  { threshold: 700, label: "10% Off Your Bill", emoji: "🎟️" },
+  { threshold: 60, label: "Free Dessert", emoji: "🍰" },
+  { threshold: 160, label: "Free Garlic Bread", emoji: "🥖" },
+  { threshold: 320, label: "Free Virgin Mojito", emoji: "🍹" },
+  { threshold: 550, label: "10% Off Your Bill", emoji: "🎟️" },
 ];
 
 export function tiersForGame(game: GameId): RewardTier[] {
