@@ -287,7 +287,7 @@ const BBQRunner: React.FC<Props> = ({ onGameOver, onScoreChange, running }) => {
         if (s2.running) o.x -= s2.speed * dt;
 
         // draw
-        if (o.type === "fire") drawFire(o.x + o.w / 2, s2.ground);
+        if (o.type === "fire") drawFire(o.x + o.w / 2, s2.ground, s2.tick);
         else if (o.type === "chilli") drawChilli(o.x, s2.ground);
         else if (o.type === "grill") drawGrill(o.x, s2.ground - o.yOff);
         else if (o.type === "coin") drawCoin(o.x + o.w / 2, s2.ground - o.yOff, s2.tick);
