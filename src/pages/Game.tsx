@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Trophy, Gift, Play, RotateCw, Home } from "lucide-react";
+import { ArrowLeft, Play, RotateCw, Home } from "lucide-react";
 import BBQRunner from "@/components/game/BBQRunner";
 import {
   REWARD_TIERS,
