@@ -32,7 +32,7 @@ const MenuHeader = ({ onSearch }: { onSearch?: (query: string) => void }) => {
       {/* Top action bar */}
       <div className="relative z-10 flex items-center justify-between px-4 pt-4 pb-2">
         <Link to="/" className="flex items-center gap-2">
-          <span className="font-display text-lg gold-text font-bold tracking-widest">INARA</span>
+          <span className="font-display text-lg gold-text font-bold tracking-widest">ORANGE'S BBQ</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link
@@ -61,7 +61,7 @@ const MenuHeader = ({ onSearch }: { onSearch?: (query: string) => void }) => {
       {/* Greeting & Restaurant Name */}
       <div className="relative z-10 text-center py-6 pb-8">
         <p className="text-primary/80 italic text-sm font-display mb-1">{getGreeting()}</p>
-        <h1 className="font-display text-4xl gold-text font-bold tracking-wider">INARA</h1>
+        <h1 className="font-display text-4xl gold-text font-bold tracking-wider">ORANGE'S BBQ</h1>
       </div>
     </div>
   );

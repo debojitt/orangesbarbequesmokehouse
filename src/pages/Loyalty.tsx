@@ -94,7 +94,7 @@ const LoyaltyPage = () => {
       await setCustomer(res.customer.phone, res.customer.name);
       qc.invalidateQueries({ queryKey: ["loyalty-card"] });
       haptic("success");
-      toast.success("Welcome to INARA Loyalty! 🎉");
+      toast.success("Welcome to Orange's BBQ Loyalty! 🎉");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Login failed");
     } finally {
@@ -164,7 +164,7 @@ const LoyaltyPage = () => {
           <Link to="/" className="text-muted-foreground hover:text-foreground ios-press">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="font-display text-lg text-primary">INARA Loyalty</h1>
+          <h1 className="font-display text-lg text-primary">Orange's BBQ Loyalty</h1>
         </header>
 
         <div className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
@@ -174,7 +174,7 @@ const LoyaltyPage = () => {
                 <Sparkles className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h2 className="font-display text-xl text-primary leading-tight">INARA</h2>
+                <h2 className="font-display text-xl text-primary leading-tight">ORANGE'S BBQ</h2>
                 <p className="text-xs text-muted-foreground">Guest Loyalty Program</p>
               </div>
             </div>
@@ -247,7 +247,7 @@ const LoyaltyPage = () => {
             <div className="relative">
               <div className="flex items-start justify-between mb-6">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.18em] opacity-80">INARA</p>
+                  <p className="text-[10px] uppercase tracking-[0.18em] opacity-80">ORANGE'S BBQ</p>
                   <h2 className="font-display text-xl mt-0.5 leading-tight">Guest Loyalty Card</h2>
                 </div>
                 {daysLeft && (
