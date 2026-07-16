@@ -81,6 +81,9 @@ const CartPage = () => {
         <Link to="/" className="px-6 py-2.5 maroon-gradient text-primary-foreground font-medium rounded-full ios-press premium-shine">
           Browse Menu
         </Link>
+        <Link to="/game" className="mt-4 px-6 py-2.5 bg-secondary text-foreground font-medium rounded-full ios-press border border-border">
+          🎮 Play BBQ Runner & Earn Free Food
+        </Link>
       </div>
     );
   }
