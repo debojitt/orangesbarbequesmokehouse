@@ -39,7 +39,7 @@ export async function unlockRewardsForCustomer(customerId: string, score: number
   }));
   // Best-effort upsert-like insert; conflicts on (customer_id, threshold) are ignored via onConflict ignore behavior.
   for (const row of rows) {
-    await supabase.from("game_rewards").insert(row).select().maybeSingle().then(() => {}).catch(() => {});
+    try { await supabase.from("game_rewards").insert(row); } catch { /* ignore duplicate */ }
   }
   return tiers;
 }
