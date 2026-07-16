@@ -11,21 +11,22 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Orange's BBQ" />
     <style>
-      html, body, #root { background-color: #F8F8FF; }
-      /* Boot splash — shown instantly before React mounts, hidden once #root has children */
+      html, body, #root { background-color: #FFF7F0; }
+      /* Boot splash — shown instantly before React mounts */
       #inara-splash {
         position: fixed; inset: 0; z-index: 9999;
         display: flex; align-items: center; justify-content: center;
-        background: linear-gradient(135deg, #F8F8FF 0%, #f3eaea 100%);
+        background: linear-gradient(135deg, #FFF7F0 0%, #ffe4c9 100%);
         transition: opacity 0.35s ease;
       }
       #inara-splash .inara-logo {
         font-family: 'Playfair Display', Georgia, serif;
-        font-size: clamp(2.5rem, 9vw, 4.5rem);
+        font-size: clamp(1.8rem, 7vw, 3.6rem);
         font-weight: 700;
-        letter-spacing: 0.25em;
+        letter-spacing: 0.18em;
+        text-align: center;
         background: linear-gradient(90deg,
-          #7a1a1a 0%, #c9a14a 25%, #f3d27a 50%, #c9a14a 75%, #7a1a1a 100%);
+          #b8380a 0%, #f97316 25%, #fdba74 50%, #f97316 75%, #b8380a 100%);
         background-size: 200% 100%;
         -webkit-background-clip: text;
         background-clip: text;
@@ -34,7 +35,7 @@
       }
       #inara-splash .inara-sub {
         position: absolute; bottom: 14%; left: 0; right: 0;
-        text-align: center; color: rgba(122,26,26,0.55);
+        text-align: center; color: rgba(184,56,10,0.6);
         font-family: 'Inter', sans-serif; font-size: 0.7rem;
         letter-spacing: 0.3em; text-transform: uppercase;
       }
@@ -47,21 +48,19 @@
     </style>
 
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="INARA — Digital Menu">
-    <meta property="og:description" content="Premium digital restaurant menu. Browse our artisan dishes.">
-    <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/929hr0zO3ofGbgPgFNzHrfRUpMj1/social-images/social-1775975278053-download.webp">
+    <meta property="og:title" content="Orange's Barbeque Smoke House — Digital Menu">
+    <meta property="og:description" content="Grill, smoke and BBQ menu. Order with ease.">
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="INARA — Digital Menu">
-    <meta name="twitter:description" content="Premium digital restaurant menu. Browse our artisan dishes.">
-    <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/929hr0zO3ofGbgPgFNzHrfRUpMj1/social-images/social-1775975278053-download.webp">
+    <meta name="twitter:title" content="Orange's Barbeque Smoke House">
+    <meta name="twitter:description" content="Grill, smoke and BBQ menu. Order with ease.">
   </head>
 
   <body>
     <div id="root"></div>
     <div id="inara-splash" aria-hidden="true">
-      <div class="inara-logo">INARA</div>
-      <div class="inara-sub">Loading your menu</div>
+      <div class="inara-logo">ORANGE'S BBQ</div>
+      <div class="inara-sub">Firing up the grill…</div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
