@@ -18,6 +18,7 @@ import StaffMenuPage from "./pages/staff/StaffMenuPage";
 import StaffOffers from "./pages/staff/StaffOffers";
 import StaffLoyalty from "./pages/staff/StaffLoyalty";
 import StaffCoupons from "./pages/staff/StaffCoupons";
+import Game from "./pages/Game";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
