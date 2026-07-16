@@ -10,6 +10,7 @@ import SpaceDefender from "@/components/game/SpaceDefender";
 import BrickBreaker from "@/components/game/BrickBreaker";
 import HungryCritters from "@/components/game/HungryCritters";
 import SmokehouseRush3D from "@/components/game/SmokehouseRush3D";
+import FlyingDrumstick from "@/components/game/FlyingDrumstick";
 import {
   GameId,
   fetchLeaderboard,
@@ -39,6 +40,7 @@ const GAME_META: Record<GameId, { title: string; emoji: string; tag: string; acc
   breakout: { title: "Brick Breaker", emoji: "🧱", tag: "🧱", accent: "text-pink-200" },
   hungry: { title: "Hungry Critters", emoji: "🍖", tag: "🍖", accent: "text-amber-200" },
   rush3d: { title: "Smokehouse Rush 3D", emoji: "🏎️", tag: "🏎️", accent: "text-violet-200" },
+  skyfry: { title: "Sky Fry", emoji: "🍗", tag: "🍗", accent: "text-sky-200" },
 };
 
 const GamePage = () => {
@@ -55,6 +57,7 @@ const GamePage = () => {
   const [bestBreakout, setBestBreakout] = useState(getStoredHighScore("breakout"));
   const [bestHungry, setBestHungry] = useState(getStoredHighScore("hungry"));
   const [bestRush3d, setBestRush3d] = useState(getStoredHighScore("rush3d"));
+  const [bestSkyfry, setBestSkyfry] = useState(getStoredHighScore("skyfry"));
   const [name, setName] = useState(getStoredName() || customer?.name || "");
   const [scores, setScores] = useState<ScoreRow[]>([]);
   const [scope, setScope] = useState<"all" | "week">("all");
@@ -73,6 +76,7 @@ const GamePage = () => {
     breakout: bestBreakout,
     hungry: bestHungry,
     rush3d: bestRush3d,
+    skyfry: bestSkyfry,
   };
   const best = bestByGame[activeGame];
   const tiers = tiersForGame(activeGame);
@@ -170,6 +174,7 @@ const GamePage = () => {
       if (activeGame === "breakout") setBestBreakout(finalScore);
       if (activeGame === "hungry") setBestHungry(finalScore);
       if (activeGame === "rush3d") setBestRush3d(finalScore);
+      if (activeGame === "skyfry") setBestSkyfry(finalScore);
     }
     if (!submittedRef.current) {
       submittedRef.current = true;
@@ -328,8 +333,15 @@ const GamePage = () => {
                     onGameOver={handleGameOver}
                     onScoreChange={handleScoreChange}
                   />
-                ) : (
+                ) : activeGame === "rush3d" ? (
                   <SmokehouseRush3D
+                    running={phase === "playing"}
+                    soundEnabled={soundEnabled}
+                    onGameOver={handleGameOver}
+                    onScoreChange={handleScoreChange}
+                  />
+                ) : (
+                  <FlyingDrumstick
                     running={phase === "playing"}
                     soundEnabled={soundEnabled}
                     onGameOver={handleGameOver}
@@ -355,7 +367,8 @@ const GamePage = () => {
                       {activeGame === "space" && "DRAG SHIP • AUTO FIRE"}
                       {activeGame === "breakout" && "DRAG PADDLE • TAP TO LAUNCH"}
                       {activeGame === "hungry" && "DRAG CRITTER • CATCH FOOD • AVOID BURNT"}
-                      {activeGame === "rush3d" && "SWIPE LANES • DODGE CRATES • GET TOKENS"}
+                      {activeGame === "rush3d" && "TAP ARROWS OR SWIPE • DODGE CRATES"}
+                      {activeGame === "skyfry" && "TAP OR HOLD TO FLY • RELEASE TO DROP"}
                     </span>
                   </div>
                 </>
@@ -369,7 +382,7 @@ const GamePage = () => {
                         <Sparkles className="h-3 w-3" /> Pick a game
                       </p>
                       <h2 className="font-display text-3xl font-black text-white">Smokehouse Arcade</h2>
-                      <p className="mt-2 text-xs text-white/55">Seven responsive games built for touch, fullscreen, and every phone size.</p>
+                      <p className="mt-2 text-xs text-white/55">Eight responsive games built for touch, fullscreen, and every phone size.</p>
                     </div>
 
                     <button
@@ -470,7 +483,7 @@ const GamePage = () => {
 
                     <button
                       onClick={() => beginPlaying("rush3d")}
-                      className="ios-press w-full rounded-3xl border border-violet-300/25 bg-gradient-to-br from-[#28194b] to-[#130d20] p-5 text-left shadow-xl sm:col-span-2"
+                      className="ios-press w-full rounded-3xl border border-violet-300/25 bg-gradient-to-br from-[#28194b] to-[#130d20] p-5 text-left shadow-xl"
                     >
                       <div className="mb-3 flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/20 text-2xl">🏎️</div>
@@ -479,8 +492,26 @@ const GamePage = () => {
                           <p className="text-[11px] text-violet-200">Perspective runner · Best {bestRush3d}</p>
                         </div>
                       </div>
-                      <p className="text-xs leading-relaxed text-white/60">Race into a lightweight 3D-style road, switch lanes, collect grill tokens, and survive rising speed.</p>
-                      <div className="mt-3 text-[10px] font-bold text-violet-100">Swipe left or right</div>
+                      <p className="text-xs leading-relaxed text-white/60">Face the road, switch projected lanes, collect grill tokens, and survive rising speed.</p>
+                      <div className="mt-3 text-[10px] font-bold text-violet-100">Dedicated arrows · or swipe</div>
+                    </button>
+
+                    <button
+                      onClick={() => beginPlaying("skyfry")}
+                      className="ios-press w-full rounded-3xl border border-sky-300/25 bg-gradient-to-br from-[#16385a] via-[#562447] to-[#26122f] p-5 text-left shadow-xl"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-400/20 text-2xl">🍗</div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-display text-xl font-black text-white">Sky Fry</h3>
+                            <span className="rounded-full bg-sky-300 px-2 py-0.5 text-[8px] font-black text-sky-950">NEW</span>
+                          </div>
+                          <p className="text-[11px] text-sky-200">BBQ flyer · Best {bestSkyfry}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs leading-relaxed text-white/60">Pilot a flying drumstick through grill-stack gaps. The opening is friendly, then speed rises and gaps tighten.</p>
+                      <div className="mt-3 text-[10px] font-bold text-sky-100">Tap or hold to lift · release to drop</div>
                     </button>
                   </div>
                 </div>
@@ -587,6 +618,7 @@ const GamePage = () => {
                 { id: "breakout" as const, label: "Bricks" },
                 { id: "hungry" as const, label: "Hungry" },
                 { id: "rush3d" as const, label: "Rush" },
+                { id: "skyfry" as const, label: "Sky Fry" },
               ]).map((g) => (
                 <button
                   key={g.id}

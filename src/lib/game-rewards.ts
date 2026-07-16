@@ -6,7 +6,7 @@ export interface RewardTier {
   emoji: string;
 }
 
-export type GameId = "climb" | "bounce" | "snake" | "space" | "breakout" | "hungry" | "rush3d";
+export type GameId = "climb" | "bounce" | "snake" | "space" | "breakout" | "hungry" | "rush3d" | "skyfry";
 
 export const REWARD_TIERS: RewardTier[] = [
   { threshold: 40, label: "Free Dessert", emoji: "🍰" },
@@ -125,6 +125,7 @@ const HIGH_SCORE_KEYS: Record<GameId, string> = {
   breakout: "orange_bbq_breakout_high_score",
   hungry: "orange_bbq_hungry_high_score",
   rush3d: "orange_bbq_rush3d_high_score",
+  skyfry: "orange_bbq_skyfry_high_score",
 };
 const DISPLAY_NAME_KEY = "orange_bbq_player_name";
 export const TUTORIAL_KEY = "orange_bbq_climb_tutorial_v1";

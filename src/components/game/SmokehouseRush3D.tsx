@@ -16,7 +16,7 @@ const SmokehouseRush3D = ({ running, soundEnabled, onGameOver, onScoreChange }: 
   const stateRef = useRef({
     width: 0, height: 0, lane: 0, laneVisual: 0, items: [] as RoadItem[],
     score: 0, bonus: 0, distance: 0, speed: 0.38, lives: 3, lastSpawnZ: 0,
-    ended: false, ending: false, pointerX: 0,
+    ended: false, ending: false, pointerX: 0, pointerY: 0,
   });
 
   useEffect(() => { refs.current = { over: onGameOver, score: onScoreChange, sound: soundEnabled, running }; }, [onGameOver, onScoreChange, soundEnabled, running]);
@@ -61,14 +61,23 @@ const SmokehouseRush3D = ({ running, soundEnabled, onGameOver, onScoreChange }: 
       const next = Math.max(-1, Math.min(1, s.lane + direction));
       if (next !== s.lane) { s.lane = next; haptic("selection"); tone(260, 0.04); }
     };
-    const down = (event: PointerEvent) => { s.pointerX = event.clientX; try { canvas.setPointerCapture(event.pointerId); } catch { /* ignore */ } };
-    const up = (event: PointerEvent) => {
-      const dx = event.clientX - s.pointerX;
-      if (Math.abs(dx) > 24) changeLane(dx > 0 ? 1 : -1);
-      else {
-        const rect = canvas.getBoundingClientRect();
-        changeLane(event.clientX - rect.left > rect.width / 2 ? 1 : -1);
+    const down = (event: PointerEvent) => {
+      event.preventDefault();
+      s.pointerX = event.clientX;
+      s.pointerY = event.clientY;
+      const rect = canvas.getBoundingClientRect();
+      const localY = event.clientY - rect.top;
+      if (localY > rect.height - 122) {
+        changeLane(event.clientX - rect.left < rect.width / 2 ? -1 : 1);
+        s.pointerX = Number.NaN;
       }
+      try { canvas.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+    };
+    const up = (event: PointerEvent) => {
+      if (!Number.isFinite(s.pointerX)) return;
+      const dx = event.clientX - s.pointerX;
+      const dy = event.clientY - s.pointerY;
+      if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) changeLane(dx > 0 ? 1 : -1);
     };
     const key = (event: KeyboardEvent) => {
       if (event.code === "ArrowLeft" || event.code === "KeyA") changeLane(-1);
@@ -157,22 +166,40 @@ const SmokehouseRush3D = ({ running, soundEnabled, onGameOver, onScoreChange }: 
         ctx.restore();
       }
 
-      const rider = project(s.laneVisual, 0);
-      ctx.save(); ctx.translate(rider.x, s.height - 62);
-      ctx.fillStyle = "#f97316"; ctx.beginPath(); ctx.roundRect(-27, -24, 54, 42, 13); ctx.fill();
-      ctx.fillStyle = "#fde68a"; ctx.fillRect(-17, -17, 34, 9);
-      ctx.fillStyle = "#111827"; ctx.beginPath(); ctx.arc(-19, 19, 9, 0, Math.PI * 2); ctx.arc(19, 19, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#fb923c"; ctx.beginPath(); ctx.moveTo(-8, 18); ctx.lineTo(0, 34 + Math.sin(time * 0.03) * 5); ctx.lineTo(8, 18); ctx.fill();
+      // The runner stays on the same projected lane used for collision, viewed from
+      // behind and facing the horizon so left/right input matches player perspective.
+      const rider = project(s.laneVisual, 0.035);
+      ctx.save(); ctx.translate(rider.x, Math.min(s.height - 126, rider.y - 44));
+      ctx.fillStyle = "rgba(249,115,22,.22)"; ctx.beginPath(); ctx.ellipse(0, 42, 38, 12, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#111827"; ctx.beginPath(); ctx.arc(-20, 30, 10, 0, Math.PI * 2); ctx.arc(20, 30, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#f97316"; ctx.beginPath(); ctx.roundRect(-29, -8, 58, 42, 12); ctx.fill();
+      ctx.fillStyle = "#7c2d12"; ctx.fillRect(-23, 5, 46, 7);
+      ctx.fillStyle = "#f5c28b"; ctx.beginPath(); ctx.arc(0, -20, 15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff7ed"; ctx.beginPath(); ctx.arc(0, -27, 18, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = "#ef4444"; ctx.fillRect(-16, -18, 32, 4);
+      ctx.fillStyle = "#fb923c"; ctx.beginPath(); ctx.moveTo(-7, 31); ctx.lineTo(0, 46 + Math.sin(time * 0.03) * 4); ctx.lineTo(7, 31); ctx.fill();
       ctx.restore();
 
       ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(10, 10, 178, 42);
       ctx.fillStyle = "#fff"; ctx.font = "bold 14px monospace"; ctx.fillText(`RUSH ${s.score}`, 18, 36);
       ctx.textAlign = "right"; ctx.fillStyle = "#fb7185"; ctx.fillText("♥".repeat(Math.max(0, s.lives)), s.width - 14, 35); ctx.textAlign = "left";
+
+      const controlY = s.height - 65;
+      const controlR = Math.min(44, s.width * 0.115);
+      for (const [x, label] of [[controlR + 18, "◀"], [s.width - controlR - 18, "▶"]] as const) {
+        ctx.fillStyle = "rgba(15,8,25,.72)";
+        ctx.strokeStyle = "rgba(255,210,150,.65)";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, controlY, controlR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#fff1cf"; ctx.font = `bold ${controlR * 0.7}px sans-serif`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, x, controlY + 1);
+      }
+      ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
       raf = requestAnimationFrame(loop);
     };
 
     resize(); const observer = new ResizeObserver(resize); observer.observe(canvas);
-    canvas.addEventListener("pointerdown", down); canvas.addEventListener("pointerup", up); window.addEventListener("keydown", key);
+    canvas.addEventListener("pointerdown", down, { passive: false }); canvas.addEventListener("pointerup", up); window.addEventListener("keydown", key);
     raf = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(raf); observer.disconnect();
