@@ -71,6 +71,7 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     move: 0,
     bounceBoost: 0,
     lastScore: -1,
+    sized: false,
   });
 
   const buildLevel = (w: number, h: number) => {
@@ -149,6 +150,8 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     let last = 0;
 
     const resize = () => {
+      const firstSize = !s.sized;
+      const oldGround = s.groundY;
       const rect = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.max(1, Math.round(rect.width * dpr));
@@ -157,7 +160,15 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       s.width = rect.width;
       s.height = rect.height;
       s.groundY = rect.height - 48;
-      if (!runningRef.current && s.platforms.length === 0) reset();
+      s.sized = rect.width > 0 && rect.height > 0;
+      if (firstSize || s.platforms.length === 0) {
+        reset();
+      } else if (oldGround > 0) {
+        const verticalShift = s.groundY - oldGround;
+        s.y += verticalShift;
+        for (const platform of s.platforms) platform.y += verticalShift;
+        for (const ring of s.rings) ring.y += verticalShift;
+      }
     };
 
     const endRun = () => {
@@ -184,13 +195,19 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       if (e.code === "Space" || e.code === "ArrowUp") s.bounceBoost = 0;
     };
 
-    const pointerDown = (e: PointerEvent) => {
+    const applyTouchZone = (e: PointerEvent) => {
       if (!runningRef.current || s.ended) return;
       const rect = canvas.getBoundingClientRect();
       const px = e.clientX - rect.left;
-      if (px < rect.width * 0.33) s.move = -1;
-      else if (px > rect.width * 0.66) s.move = 1;
-      else s.bounceBoost = 1;
+      s.move = px < rect.width * 0.33 ? -1 : px > rect.width * 0.66 ? 1 : 0;
+      s.bounceBoost = px >= rect.width * 0.33 && px <= rect.width * 0.66 ? 1 : 0;
+    };
+    const pointerDown = (e: PointerEvent) => {
+      applyTouchZone(e);
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    };
+    const pointerMove = (e: PointerEvent) => {
+      if (canvas.hasPointerCapture(e.pointerId)) applyTouchZone(e);
     };
     const pointerUp = () => {
       s.move = 0;
@@ -381,6 +398,7 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     window.addEventListener("keydown", keyDown);
     window.addEventListener("keyup", keyUp);
     canvas.addEventListener("pointerdown", pointerDown);
+    canvas.addEventListener("pointermove", pointerMove);
     canvas.addEventListener("pointerup", pointerUp);
     canvas.addEventListener("pointercancel", pointerUp);
     raf = requestAnimationFrame(loop);
@@ -391,6 +409,7 @@ const BounceBall = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       window.removeEventListener("keydown", keyDown);
       window.removeEventListener("keyup", keyUp);
       canvas.removeEventListener("pointerdown", pointerDown);
+      canvas.removeEventListener("pointermove", pointerMove);
       canvas.removeEventListener("pointerup", pointerUp);
       canvas.removeEventListener("pointercancel", pointerUp);
     };

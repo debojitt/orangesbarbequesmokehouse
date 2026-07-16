@@ -5,6 +5,11 @@ import {
 } from "lucide-react";
 import PotOfGlory from "@/components/game/PotOfGlory";
 import BounceBall from "@/components/game/BounceBall";
+import SnakeGame from "@/components/game/SnakeGame";
+import SpaceDefender from "@/components/game/SpaceDefender";
+import BrickBreaker from "@/components/game/BrickBreaker";
+import HungryCritters from "@/components/game/HungryCritters";
+import SmokehouseRush3D from "@/components/game/SmokehouseRush3D";
 import {
   GameId,
   fetchLeaderboard,
@@ -26,6 +31,16 @@ type Phase = "select" | "tutorial" | "playing" | "gameover";
 type Tab = "game" | "leaderboard" | "rewards";
 interface ScoreRow { display_name: string; score: number; created_at: string }
 
+const GAME_META: Record<GameId, { title: string; emoji: string; tag: string; accent: string }> = {
+  climb: { title: "Pot of Glory", emoji: "🍲", tag: "🧗", accent: "text-orange-200" },
+  bounce: { title: "Meatball Bounce", emoji: "🔴", tag: "🔴", accent: "text-cyan-200" },
+  snake: { title: "Smokehouse Snake", emoji: "🐍", tag: "🐍", accent: "text-lime-200" },
+  space: { title: "Space Defender", emoji: "🚀", tag: "🚀", accent: "text-blue-200" },
+  breakout: { title: "Brick Breaker", emoji: "🧱", tag: "🧱", accent: "text-pink-200" },
+  hungry: { title: "Hungry Critters", emoji: "🍖", tag: "🍖", accent: "text-amber-200" },
+  rush3d: { title: "Smokehouse Rush 3D", emoji: "🏎️", tag: "🏎️", accent: "text-violet-200" },
+};
+
 const GamePage = () => {
   const { customer } = useCustomer();
   const [phase, setPhase] = useState<Phase>("select");
@@ -35,6 +50,11 @@ const GamePage = () => {
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("bbq_game_sound") !== "off");
   const [bestClimb, setBestClimb] = useState(getStoredHighScore("climb"));
   const [bestBounce, setBestBounce] = useState(getStoredHighScore("bounce"));
+  const [bestSnake, setBestSnake] = useState(getStoredHighScore("snake"));
+  const [bestSpace, setBestSpace] = useState(getStoredHighScore("space"));
+  const [bestBreakout, setBestBreakout] = useState(getStoredHighScore("breakout"));
+  const [bestHungry, setBestHungry] = useState(getStoredHighScore("hungry"));
+  const [bestRush3d, setBestRush3d] = useState(getStoredHighScore("rush3d"));
   const [name, setName] = useState(getStoredName() || customer?.name || "");
   const [scores, setScores] = useState<ScoreRow[]>([]);
   const [scope, setScope] = useState<"all" | "week">("all");
@@ -45,7 +65,16 @@ const GamePage = () => {
   const fullscreenSessionRef = useRef(false);
   const endingRef = useRef(false);
 
-  const best = activeGame === "climb" ? bestClimb : bestBounce;
+  const bestByGame: Record<GameId, number> = {
+    climb: bestClimb,
+    bounce: bestBounce,
+    snake: bestSnake,
+    space: bestSpace,
+    breakout: bestBreakout,
+    hungry: bestHungry,
+    rush3d: bestRush3d,
+  };
+  const best = bestByGame[activeGame];
   const tiers = tiersForGame(activeGame);
 
   const loadBoard = useCallback(async () => {
@@ -132,20 +161,20 @@ const GamePage = () => {
     exitFullscreen();
     setPhase("gameover");
     setScore(finalScore);
-    if (activeGame === "climb") {
-      if (finalScore > bestClimb) {
-        setBestClimb(finalScore);
-        setStoredHighScore(finalScore, "climb");
-      }
-    } else if (finalScore > bestBounce) {
-      setBestBounce(finalScore);
-      setStoredHighScore(finalScore, "bounce");
+    if (finalScore > bestByGame[activeGame]) {
+      setStoredHighScore(finalScore, activeGame);
+      if (activeGame === "climb") setBestClimb(finalScore);
+      if (activeGame === "bounce") setBestBounce(finalScore);
+      if (activeGame === "snake") setBestSnake(finalScore);
+      if (activeGame === "space") setBestSpace(finalScore);
+      if (activeGame === "breakout") setBestBreakout(finalScore);
+      if (activeGame === "hungry") setBestHungry(finalScore);
+      if (activeGame === "rush3d") setBestRush3d(finalScore);
     }
     if (!submittedRef.current) {
       submittedRef.current = true;
       try {
-        const tag = activeGame === "climb" ? "🧗" : "🔴";
-        await submitScore(`${tag}${name || "Guest"}`, finalScore, customer?.id ?? null);
+        await submitScore(`${GAME_META[activeGame].tag}${name || "Guest"}`, finalScore, customer?.id ?? null);
         if (customer?.id) {
           const unlockedTiers = await unlockRewardsForCustomer(customer.id, finalScore, activeGame);
           unlockedTiers.forEach((t) => toast.success(`${t.emoji} Reward unlocked: ${t.label}!`));
@@ -264,8 +293,43 @@ const GamePage = () => {
                     onGameOver={handleGameOver}
                     onScoreChange={handleScoreChange}
                   />
-                ) : (
+                ) : activeGame === "bounce" ? (
                   <BounceBall
+                    running={phase === "playing"}
+                    soundEnabled={soundEnabled}
+                    onGameOver={handleGameOver}
+                    onScoreChange={handleScoreChange}
+                  />
+                ) : activeGame === "snake" ? (
+                  <SnakeGame
+                    running={phase === "playing"}
+                    soundEnabled={soundEnabled}
+                    onGameOver={handleGameOver}
+                    onScoreChange={handleScoreChange}
+                  />
+                ) : activeGame === "space" ? (
+                  <SpaceDefender
+                    running={phase === "playing"}
+                    soundEnabled={soundEnabled}
+                    onGameOver={handleGameOver}
+                    onScoreChange={handleScoreChange}
+                  />
+                ) : activeGame === "breakout" ? (
+                  <BrickBreaker
+                    running={phase === "playing"}
+                    soundEnabled={soundEnabled}
+                    onGameOver={handleGameOver}
+                    onScoreChange={handleScoreChange}
+                  />
+                ) : activeGame === "hungry" ? (
+                  <HungryCritters
+                    running={phase === "playing"}
+                    soundEnabled={soundEnabled}
+                    onGameOver={handleGameOver}
+                    onScoreChange={handleScoreChange}
+                  />
+                ) : (
+                  <SmokehouseRush3D
                     running={phase === "playing"}
                     soundEnabled={soundEnabled}
                     onGameOver={handleGameOver}
@@ -283,29 +347,29 @@ const GamePage = () => {
                   >
                     <Pause className="h-3.5 w-3.5 fill-current" /> EXIT
                   </button>
-                  <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2 text-[10px] font-bold text-white/70">
-                    {activeGame === "climb" ? (
-                      <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-md">HOLD & DRAG TO PULL FORK</span>
-                    ) : (
-                      <>
-                        <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5">◀ LEFT</span>
-                        <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5">TAP CENTER BOUNCE</span>
-                        <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5">RIGHT ▶</span>
-                      </>
-                    )}
+                  <div className="pointer-events-none absolute bottom-3 left-1/2 flex max-w-[95%] -translate-x-1/2 gap-2 text-center text-[10px] font-bold text-white/70">
+                    <span className="rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
+                      {activeGame === "climb" && "HOLD & DRAG TO PULL FORK"}
+                      {activeGame === "bounce" && "TAP LEFT / BOOST / RIGHT"}
+                      {activeGame === "snake" && "SWIPE ANYWHERE TO TURN"}
+                      {activeGame === "space" && "DRAG SHIP • AUTO FIRE"}
+                      {activeGame === "breakout" && "DRAG PADDLE • TAP TO LAUNCH"}
+                      {activeGame === "hungry" && "DRAG CRITTER • CATCH FOOD • AVOID BURNT"}
+                      {activeGame === "rush3d" && "SWIPE LANES • DODGE CRATES • GET TOKENS"}
+                    </span>
                   </div>
                 </>
               )}
 
               {phase === "select" && (
                 <div className="absolute inset-0 overflow-y-auto p-4">
-                  <div className="mx-auto max-w-md space-y-4 pb-6">
-                    <div className="text-center pt-2">
+                  <div className="mx-auto grid max-w-3xl gap-4 pb-6 sm:grid-cols-2">
+                    <div className="pt-2 text-center sm:col-span-2">
                       <p className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.25em] text-orange-300">
                         <Sparkles className="h-3 w-3" /> Pick a game
                       </p>
                       <h2 className="font-display text-3xl font-black text-white">Smokehouse Arcade</h2>
-                      <p className="mt-2 text-xs text-white/55">Two originals — climb with real physics, or bounce like classic Nokia Bounce.</p>
+                      <p className="mt-2 text-xs text-white/55">Seven responsive games built for touch, fullscreen, and every phone size.</p>
                     </div>
 
                     <button
@@ -343,6 +407,81 @@ const GamePage = () => {
                       </p>
                       <div className="mt-3 text-[10px] font-bold text-cyan-100">Tap zones: Left · Bounce · Right</div>
                     </button>
+
+                    <button
+                      onClick={() => beginPlaying("snake")}
+                      className="ios-press w-full rounded-3xl border border-lime-300/25 bg-gradient-to-br from-[#17331f] to-[#071d20] p-5 text-left shadow-xl"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-500/20 text-2xl">🐍</div>
+                        <div>
+                          <h3 className="font-display text-xl font-black text-white">Smokehouse Snake</h3>
+                          <p className="text-[11px] text-lime-200">Swipe classic · Best {bestSnake}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs leading-relaxed text-white/60">Swipe anywhere to turn, collect food, grow longer, and survive the speeding grid.</p>
+                      <div className="mt-3 text-[10px] font-bold text-lime-100">Swipe or use the visible arrow pad</div>
+                    </button>
+
+                    <button
+                      onClick={() => beginPlaying("space")}
+                      className="ios-press w-full rounded-3xl border border-blue-300/25 bg-gradient-to-br from-[#14294b] to-[#050b1e] p-5 text-left shadow-xl"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/20 text-2xl">🚀</div>
+                        <div>
+                          <h3 className="font-display text-xl font-black text-white">Space Defender</h3>
+                          <p className="text-[11px] text-blue-200">Arcade shooter · Best {bestSpace}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs leading-relaxed text-white/60">Drag your ship, dodge enemy lasers, and clear faster waves. Your blaster fires automatically.</p>
+                      <div className="mt-3 text-[10px] font-bold text-blue-100">One-finger drag controls</div>
+                    </button>
+
+                    <button
+                      onClick={() => beginPlaying("breakout")}
+                      className="ios-press w-full rounded-3xl border border-pink-300/25 bg-gradient-to-br from-[#3b1833] to-[#171224] p-5 text-left shadow-xl"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-500/20 text-2xl">🧱</div>
+                        <div>
+                          <h3 className="font-display text-xl font-black text-white">Brick Breaker</h3>
+                          <p className="text-[11px] text-pink-200">Paddle classic · Best {bestBreakout}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs leading-relaxed text-white/60">Drag the paddle base, keep the ball alive, and smash every colorful brick through harder levels.</p>
+                      <div className="mt-3 text-[10px] font-bold text-pink-100">Drag paddle · tap to launch</div>
+                    </button>
+
+                    <button
+                      onClick={() => beginPlaying("hungry")}
+                      className="ios-press w-full rounded-3xl border border-amber-300/25 bg-gradient-to-br from-[#4a2912] to-[#21101d] p-5 text-left shadow-xl"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-2xl">🍖</div>
+                        <div>
+                          <h3 className="font-display text-xl font-black text-white">Hungry Critters</h3>
+                          <p className="text-[11px] text-amber-200">Catch & eat · Best {bestHungry}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs leading-relaxed text-white/60">Guide an original hungry smokehouse critter, chain tasty catches, and dodge burnt bites.</p>
+                      <div className="mt-3 text-[10px] font-bold text-amber-100">Drag anywhere · build combos</div>
+                    </button>
+
+                    <button
+                      onClick={() => beginPlaying("rush3d")}
+                      className="ios-press w-full rounded-3xl border border-violet-300/25 bg-gradient-to-br from-[#28194b] to-[#130d20] p-5 text-left shadow-xl sm:col-span-2"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/20 text-2xl">🏎️</div>
+                        <div>
+                          <h3 className="font-display text-xl font-black text-white">Smokehouse Rush 3D</h3>
+                          <p className="text-[11px] text-violet-200">Perspective runner · Best {bestRush3d}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs leading-relaxed text-white/60">Race into a lightweight 3D-style road, switch lanes, collect grill tokens, and survive rising speed.</p>
+                      <div className="mt-3 text-[10px] font-bold text-violet-100">Swipe left or right</div>
+                    </button>
                   </div>
                 </div>
               )}
@@ -368,12 +507,8 @@ const GamePage = () => {
               {phase === "gameover" && (
                 <div className="absolute inset-0 flex items-center justify-center bg-[#120915]/55 p-4 backdrop-blur-[3px]">
                   <div className="ios-spring-in w-full max-w-sm overflow-hidden rounded-[28px] border border-white/15 bg-[#251429]/90 p-6 text-center shadow-2xl backdrop-blur-xl">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.28em] text-orange-300">
-                      {activeGame === "climb" ? "Back in the pit" : "Spike / fall"}
-                    </p>
-                    <h2 className="font-display mb-1 text-3xl font-black text-white">
-                      {activeGame === "climb" ? "Climb Over!" : "Bounce Over!"}
-                    </h2>
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.28em] text-orange-300">Run complete</p>
+                    <h2 className="font-display mb-1 text-3xl font-black text-white">{GAME_META[activeGame].title}</h2>
                     <p className="my-2 bg-gradient-to-b from-yellow-200 to-orange-400 bg-clip-text text-6xl font-black text-transparent">
                       {score}{activeGame === "climb" ? "m" : ""}
                     </p>
@@ -411,7 +546,7 @@ const GamePage = () => {
 
         {tab === "leaderboard" && (
           <div className="absolute inset-0 overflow-y-auto px-4 pb-6">
-            <div className="mb-3 flex gap-1">
+            <div className="mb-3 flex gap-1 overflow-x-auto pb-1">
               {(["all", "week"] as const).map((sc) => (
                 <button
                   key={sc}
@@ -443,15 +578,20 @@ const GamePage = () => {
 
         {tab === "rewards" && (
           <div className="absolute inset-0 overflow-y-auto px-4 pb-6">
-            <div className="mb-3 flex gap-1">
+            <div className="mb-3 flex gap-1 overflow-x-auto pb-1">
               {([
                 { id: "climb" as const, label: "Climb" },
                 { id: "bounce" as const, label: "Bounce" },
+                { id: "snake" as const, label: "Snake" },
+                { id: "space" as const, label: "Space" },
+                { id: "breakout" as const, label: "Bricks" },
+                { id: "hungry" as const, label: "Hungry" },
+                { id: "rush3d" as const, label: "Rush" },
               ]).map((g) => (
                 <button
                   key={g.id}
                   onClick={() => setActiveGame(g.id)}
-                  className={`flex-1 rounded-lg py-1.5 text-xs font-medium ios-press ${
+                  className={`min-w-[64px] flex-1 rounded-lg py-1.5 text-xs font-medium ios-press ${
                     activeGame === g.id ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
                   }`}
                 >
@@ -460,7 +600,7 @@ const GamePage = () => {
               ))}
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
-              Reach these scores in {activeGame === "climb" ? "Pot of Glory" : "Meatball Bounce"} to unlock free food.
+              Reach these scores in {GAME_META[activeGame].title} to unlock free food.
             </p>
             <div className="space-y-2">
               {tiers.map((t) => {

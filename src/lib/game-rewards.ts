@@ -6,7 +6,7 @@ export interface RewardTier {
   emoji: string;
 }
 
-export type GameId = "climb" | "bounce";
+export type GameId = "climb" | "bounce" | "snake" | "space" | "breakout" | "hungry" | "rush3d";
 
 export const REWARD_TIERS: RewardTier[] = [
   { threshold: 40, label: "Free Dessert", emoji: "🍰" },
@@ -22,8 +22,41 @@ export const BOUNCE_REWARD_TIERS: RewardTier[] = [
   { threshold: 550, label: "10% Off Your Bill", emoji: "🎟️" },
 ];
 
+export const SNAKE_REWARD_TIERS: RewardTier[] = [
+  { threshold: 30, label: "Free Dessert", emoji: "🍰" },
+  { threshold: 70, label: "Free Garlic Bread", emoji: "🥖" },
+  { threshold: 130, label: "Free Virgin Mojito", emoji: "🍹" },
+  { threshold: 220, label: "10% Off Your Bill", emoji: "🎟️" },
+];
+
+export const ARCADE_REWARD_TIERS: RewardTier[] = [
+  { threshold: 80, label: "Free Dessert", emoji: "🍰" },
+  { threshold: 200, label: "Free Garlic Bread", emoji: "🥖" },
+  { threshold: 400, label: "Free Virgin Mojito", emoji: "🍹" },
+  { threshold: 700, label: "10% Off Your Bill", emoji: "🎟️" },
+];
+
+export const HUNGRY_REWARD_TIERS: RewardTier[] = [
+  { threshold: 100, label: "Free Dessert", emoji: "🍰" },
+  { threshold: 260, label: "Free Garlic Bread", emoji: "🥖" },
+  { threshold: 480, label: "Free Virgin Mojito", emoji: "🍹" },
+  { threshold: 800, label: "10% Off Your Bill", emoji: "🎟️" },
+];
+
+export const RUSH_REWARD_TIERS: RewardTier[] = [
+  { threshold: 120, label: "Free Dessert", emoji: "🍰" },
+  { threshold: 300, label: "Free Garlic Bread", emoji: "🥖" },
+  { threshold: 540, label: "Free Virgin Mojito", emoji: "🍹" },
+  { threshold: 900, label: "10% Off Your Bill", emoji: "🎟️" },
+];
+
 export function tiersForGame(game: GameId): RewardTier[] {
-  return game === "bounce" ? BOUNCE_REWARD_TIERS : REWARD_TIERS;
+  if (game === "climb") return REWARD_TIERS;
+  if (game === "bounce") return BOUNCE_REWARD_TIERS;
+  if (game === "snake") return SNAKE_REWARD_TIERS;
+  if (game === "hungry") return HUNGRY_REWARD_TIERS;
+  if (game === "rush3d") return RUSH_REWARD_TIERS;
+  return ARCADE_REWARD_TIERS;
 }
 
 export function tiersUnlockedFor(score: number, game: GameId = "climb"): RewardTier[] {
@@ -87,6 +120,11 @@ export async function fetchCustomerRewards(customerId: string) {
 const HIGH_SCORE_KEYS: Record<GameId, string> = {
   climb: "orange_bbq_climb_high_score",
   bounce: "orange_bbq_bounce_high_score",
+  snake: "orange_bbq_snake_high_score",
+  space: "orange_bbq_space_high_score",
+  breakout: "orange_bbq_breakout_high_score",
+  hungry: "orange_bbq_hungry_high_score",
+  rush3d: "orange_bbq_rush3d_high_score",
 };
 const DISPLAY_NAME_KEY = "orange_bbq_player_name";
 export const TUTORIAL_KEY = "orange_bbq_climb_tutorial_v1";
