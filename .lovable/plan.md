@@ -1,115 +1,85 @@
+# Orange's Barbeque Smoke House — Full Rebrand + Arcade Game
 
+## 1. Rebrand INARA → Orange's Barbeque Smoke House
 
-# INARA — Digital Restaurant Menu Platform
+- Update brand name everywhere: `index.html` (title, meta, OG), header, splash/shimmer, footer, staff portal, loyalty pages, review page.
+- Refresh color accents to a warm smoky orange + charcoal palette (kept as design tokens in `index.css` and `tailwind.config.ts`), preserving the existing light iOS aesthetic and frosted-glass nav.
+- Update the shimmer/loading text on `Index.tsx` from "INARA" to "ORANGE'S BBQ".
+- Update `Powered by JorhatStays` footer wording stays (per memory rule).
 
-## Design System
-- **Colors**: Matte Black (`#1A1A1A`), Ghost White (`#F8F8F8`), Premium Gold (`#C9A96E`)
-- **Style**: Liquid glass morphism (translucent panels with backdrop blur) with sharp corners
-- **Typography**: Clean, modern sans-serif. Gold accents for badges and CTAs
+## 2. Menu wipe + re-seed from the PDF
 
----
+- Migration: `DELETE FROM gallery_images; DELETE FROM item_variants; DELETE FROM menu_items; DELETE FROM categories;` (in that order to respect FKs), then insert fresh data.
+- New categories: Pasta, Soups, Starters, Pizzas & Burgers, Seafood, Signature Platters & Combos, Buffet, Mocktails & Drinks.
+- Insert all ~35 items from PDF with exact prices, descriptions, veg/non-veg flags.
+- Items with dual pricing (Veg/Chicken, Reg/Lrg) will use `item_variants` (already in schema).
+- Loyalty rewards config unchanged in logic, but the "free item at visit N" labels updated to BBQ-appropriate rewards (e.g. free Virgin Mojito, free Garlic Bread).
 
-## DATABASE TABLES (Lovable Cloud / Supabase)
+## 3. Admin PIN → 7777
 
-1. **staff** — `id`, `name`, `pin` (hashed), `role` (admin/staff), `created_at`
-2. **categories** — `id`, `name`, `display_order`, `icon`, `is_visible`, `created_at`
-3. **menu_items** — `id`, `category_id`, `name`, `description`, `serving_info`, `base_price`, `is_veg`, `is_bestseller`, `is_chef_special`, `is_available`, `is_daily_special`, `created_at`
-4. **item_variants** — `id`, `menu_item_id`, `name` (Half/Full/Large), `price`, `serves_count`
-5. **gallery_images** — `id`, `menu_item_id` (nullable), `image_url`, `caption`, `uploaded_by`, `created_at`
-6. **customers** — `id`, `name`, `phone`, `created_at`, `last_visit`
-7. **loyalty_cards** — `id`, `customer_id`, `visit_count`, `created_at`, `expires_at`, `is_active`, `qr_code`
-8. **loyalty_visits** — `id`, `loyalty_card_id`, `visit_number`, `reward_type`, `reward_result`, `claimed_at`, `recorded_by`
-9. **loyalty_rewards_config** — `id`, `visit_number`, `reward_type` (roulette/guaranteed), `rigged_result`, `reward_description`, `max_discount_value`
-10. **discounts** — `id`, `name`, `type` (percentage/combo/time-based), `value`, `applies_to` (item/category/all), `target_id`, `start_time`, `end_time`, `is_active`
-11. **feedback** — `id`, `customer_id`, `rating`, `message`, `ai_response`, `created_at`
-12. **item_selections** — `id`, `menu_item_id`, `selected_at` — tracks popularity for weekly analytics
-13. **ai_cravings_log** — `id`, `customer_id`, `query`, `suggestions`, `created_at`
+- Update `ADMIN_PIN` secret to `7777` via `set_secret`.
+- Also insert/update a staff row so PIN login (`StaffLogin.tsx` → `staff` table) accepts `7777` with admin role.
 
----
+## 4. AI craving search — keep the existing free stack
 
-## PAGES & FEATURES
+- Existing `ai-craving` edge function already uses Lovable AI Gateway (free tier, Google Gemini) with a smart keyword fallback and Pollinations.ai (open-source, no key) for image generation. This already satisfies "open source / free" — no key changes needed. Only the menu content changes.
 
-### 1. Customer Menu Page (`/`)
-- **Top bar**: Restaurant logo "INARA" in gold on black, search bar
-- **AI Craving Box**: Prominent glass-morphism card at top — "What are you craving? Tell us and we'll find the best match!" Text input + send button. AI analyzes all menu items and suggests best matches considering budget if mentioned. Shows suggested items as cards with "Add to Cart" buttons
-- **Category Tabs**: Horizontally scrollable tabs (Snacks, Full Course, Main Course, Subscribers, Influencers Menu, etc.). First 4 visible, "More" button expands full list in a modal
-- **Menu Items Grid**: Each item card shows — Name, Description, Price (with crossed-out original if discounted), Veg/Non-Veg badge (green/red dot), "Chef's Special"/"Bestseller" gold badges, "Add" button. Out-of-stock items greyed out with "Unavailable" label
-- **Variant Selection**: When "Add" is tapped on an item with variants, a bottom sheet slides up showing options (Half/Full/Large) with prices and "Serves X" info
-- **"Today's Offers"** section at top of menu with active deals highlighted in gold
-- **Gallery Link**: Each item has a camera icon — tapping opens photo gallery uploaded by staff
-- **Items shuffle** on every page load (randomize order within categories)
-- **Footer**: "Powered by JorhatStays • Want a menu for your restaurant? Click here" → links to `https://wa.me/918474038160`
+## 5. Arcade mini-game — "BBQ Runner"
 
-### 2. Cart & Approximate Bill (`/cart`)
-- List of added items with quantity controls (+/-)
-- **Approximate Bill**: Subtotal shown. If total > ₹800, silently add ₹150 to the displayed "Approximate Total" (this extra is NOT on the physical bill — it's to make customers feel the real bill is a pleasant surprise)
-- Active loyalty discount auto-applied with clear label
-- Note: "This is an approximate estimate. Your final bill may vary."
+New route `/game` and a floating "🎮 Play & Earn" button on `Cart.tsx` (so guests can play while waiting for orders).
 
-### 3. Review Interceptor (`/review`)
-- Accessible via a prominent "Review Us ⭐" button on menu
-- Shows 5 star rating selector
-- **If rating ≥ 5 stars**: Redirects to Google Review page (URL configurable by staff)
-- **If rating < 4 stars**: Intercepts — shows a form "We're sorry! May we know what went wrong?" Customer types feedback → AI analyzes the complaint and generates a clever, empathetic response acknowledging the issue. Feedback saved to database and shown on staff dashboard
+**Gameplay (mobile-first, rigid, smooth):**
+- Chrome-dino style side-scroller on HTML `<canvas>`, 60fps with `requestAnimationFrame`.
+- Character = a running chef; obstacles = fire flames, knives, chilli peppers; collectibles = coins (score) and food pickups.
+- Controls: tap anywhere to jump, swipe down to duck. Desktop: Space/↑ to jump, ↓ to duck.
+- Rigid mobile UI: full-viewport `100dvh`, safe-area insets, no zoom, haptic buzz on jump/hit (uses existing `haptics.ts`).
+- States: **Menu → Playing → Game Over** with buttons: Play, Play Again, Back to Menu, View Leaderboard, View Rewards. All modal-style with the app's glass panel styling.
+- Difficulty ramps: speed + obstacle frequency scale with score.
 
-### 4. Customer Loyalty Page (`/loyalty`)
-- Requires phone login (OTP or simple phone entry)
-- Shows: Guest name, phone, card ID, QR code
-- **Visual 7-step progress tracker** with current position highlighted in gold
-- Milestones listed:
-  - Before claiming: Mystery text "Win up to a FREE MEAL — depends on your luck! 🍀"
-  - After claiming: Actual reward shown (e.g., "✓ Won 30% OFF")
-- **"Try Your Luck" Button**: Golden pulsing button appears ONLY on visits 2, 3, 4, 6
-  - Opens the **Blinking Roulette**: Vertical list of all offers rapidly cycling/highlighting. Smooth deceleration landing on the rigged result. Celebration animation on win
-- **Guaranteed Rewards** (visits 5, 7): Instant celebration popup with confetti
-- Card expiry date shown (3 months from creation)
+**Rewards ladder (persistent per customer via `customers.phone`):**
+- 100 pts → Free Dessert coupon
+- 250 pts → Free Garlic Bread
+- 500 pts → Free Mocktail (Virgin Mojito)
+- 1000 pts → 10% off next visit
+- Reward auto-unlocked once high score crosses threshold; shown as a coupon QR on `/loyalty` page.
 
-### 5. Staff Login (`/staff/login`)
-- PIN-based login (4-6 digit PIN)
-- Persistent session — no re-login needed until manual logout
-- "Lock" button on dashboard — requires PIN to unlock (for stepping away)
+**Leaderboard with Assamese names:**
+- New table `game_scores(id, customer_id nullable, display_name, score, created_at)` with public read + insert.
+- Top 10 all-time + top 10 this week.
+- Seed leaderboard with authentic Assamese names (Anindita, Bhaskar, Chayanika, Dhritiman, Eeshan, Gitanjali, Hirakjyoti, Jonaki, Kaustav, Manashi, Nabajit, Pallabi, Rituraj, Simanta, Trishna, etc.).
+- Player prompted for display name on first score submit (autofilled from loyalty card name if available).
 
-### 6. Staff Dashboard (`/staff/dashboard`)
-- **Glass-morphism panels on dark background**
-- **Analytics Cards**: Total guests, visits this week, rewards redeemed this month, most selected items (weekly)
-- **Feedback Feed**: All intercepted reviews with customer message, AI response, rating, timestamp
-- **AI Monitoring Alerts**: AI-generated insights about menu performance sent to dashboard (trending items, items losing popularity, etc.)
+**Reward claim flow:**
+- On threshold cross, in-game popup: "You unlocked a Free Mocktail!" → auto-saved as coupon on their customer profile → staff verifies at counter via PIN.
 
-### 7. Staff Menu Management (`/staff/menu`)
-- **Add/Edit/Delete** menu items with form: Name, description, price, category, veg/non-veg, variants (with serves count), bestseller/chef's special toggles
-- **Mark items as Out of Stock** (toggle)
-- **Set Daily Specials** (auto-highlighted on customer menu)
-- **Category Management**: Create, edit, reorder (drag-and-drop), hide categories
-- **Gallery Upload**: Upload food photos per item or general gallery
+## 6. Files touched
 
-### 8. Staff Offer Management (`/staff/offers`)
-- Create percentage discounts on items/categories
-- Create time-based offers (Happy Hour with start/end times)
-- Create combo deals with custom pricing
-- Enable/disable offers
-- Configure Google Review URL
+**New:**
+- `src/pages/Game.tsx` — game host + menu/gameover modals + leaderboard/rewards tabs
+- `src/components/game/BBQRunner.tsx` — canvas engine
+- `src/components/game/GameLeaderboard.tsx`
+- `src/components/game/GameRewards.tsx`
+- `src/lib/game-rewards.ts` — reward thresholds + unlock logic
+- Migrations: menu wipe/reseed, `game_scores`, `game_rewards` tables
 
-### 9. Staff Loyalty Management (`/staff/loyalty`)
-- **Guest List**: Searchable/sortable by name, phone, visit count, last visit, card status
-- **Quick Actions**: +Visit (one-tap), View Card, Send WhatsApp Reminder, Restart Card
-- **QR Scanner**: Use device camera to scan guest QR code
-- **Add New Guest**: Name + phone form
-- **Edit Reward Configuration**: Modify what each visit reward gives (the rigged results, discount values, etc.)
-- **Visit History**: Full log per guest
+**Edited:**
+- `index.html` — title, meta, brand
+- `src/index.css`, `tailwind.config.ts` — orange/smoke tokens
+- `src/pages/Index.tsx` — shimmer text, brand
+- `src/components/MenuHeader.tsx`, footer, staff pages — brand
+- `src/pages/Cart.tsx` — "Play & Earn while you wait" CTA
+- `src/App.tsx` — `/game` route
 
-### 10. AI Features (Lovable AI powered)
-- **Craving Matcher**: Takes customer's description of what they want + optional budget → searches all menu items → suggests best matches and combos within budget
-- **Review Responder**: Analyzes negative feedback → generates empathetic, solution-oriented response
-- **Menu Monitor**: Periodic analysis of selection data → generates insights for staff dashboard (trending items, underperforming items, suggested combos)
+## 7. Order of execution
 
----
+1. Approve plan → apply migrations (menu wipe + reseed, game tables).
+2. Set `ADMIN_PIN=7777` + upsert staff row.
+3. Rebrand text/colors.
+4. Build game (canvas + UI).
+5. Kick off image generation for new menu items via the existing `ai-craving` bulk endpoint (runs async in background).
 
-## KEY LOGIC
+## Notes
 
-- **Menu shuffle**: On each customer page load, items within each category are randomly ordered
-- **Bill inflation**: Cart total > ₹800 → display total + ₹150 as "Approximate Total"
-- **Review routing**: Rating ≥ 5 → Google redirect; < 4 → internal AI feedback loop
-- **Loyalty roulette**: Predetermined results per visit number, animation is purely visual
-- **Persistent customer session**: Phone number stored locally, auto-login on return
-- **Staff session**: PIN auth with persistent session, lock/unlock feature
-
+- Image generation for ~35 items runs in the background after code ships; each image takes ~5s so total ≈3 min. Users see items instantly with placeholder illustrations; images fill in as they generate.
+- Loyalty QR / roulette / staff dashboards keep working — only branding + reward labels change.
+- Cart approximate-total and ₹150 surcharge >₹800 rules preserved.
