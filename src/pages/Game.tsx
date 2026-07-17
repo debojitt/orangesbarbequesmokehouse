@@ -361,7 +361,7 @@ const GamePage = () => {
                   </button>
                   <div className="pointer-events-none absolute bottom-3 left-1/2 flex max-w-[95%] -translate-x-1/2 gap-2 text-center text-[10px] font-bold text-white/70">
                     <span className="rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
-                      {activeGame === "climb" && "HOLD & DRAG TO PULL FORK"}
+                      {activeGame === "climb" && "HOLD & SWING FROM CENTER · PLANT · LEVER UP"}
                       {activeGame === "bounce" && "TAP LEFT / BOOST / RIGHT"}
                       {activeGame === "snake" && "SWIPE ANYWHERE TO TURN"}
                       {activeGame === "space" && "DRAG SHIP • AUTO FIRE"}
@@ -393,14 +393,14 @@ const GamePage = () => {
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/20 text-2xl">🍲</div>
                         <div>
                           <h3 className="font-display text-xl font-black text-white">Pot of Glory</h3>
-                          <p className="text-[11px] text-orange-200">Physics climber · Best {bestClimb}m</p>
+                          <p className="text-[11px] text-orange-200">Glory Pile climber · Best {bestClimb}m</p>
                         </div>
                       </div>
                         <p className="text-xs leading-relaxed text-white/60">
-                          Hold and drag — the fork follows your finger. Early ledges are wide and friendly. Higher up gets tight so every miss feels like “one more try.”
+                          Climb a broad S-curved open rock route with real CC0 rock artwork and no box platforms or side walls. Plant the sledge, swing sideways, and recover from every fall.
                         </p>
                       <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-orange-100">
-                        <Hand className="h-3.5 w-3.5" /> Touch & drag pull controls
+                        <Hand className="h-3.5 w-3.5" /> Swing from center · plant · lever
                       </div>
                     </button>
 
@@ -520,13 +520,13 @@ const GamePage = () => {
               {phase === "tutorial" && (
                 <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#120915]/75 p-4 backdrop-blur-sm">
                   <div className="w-full max-w-sm rounded-[28px] border border-white/15 bg-[#251429]/95 p-6 text-center shadow-2xl">
-                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/25 text-3xl">👆</div>
+                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/25 text-3xl">🧗</div>
                     <h2 className="font-display mb-2 text-2xl font-black text-white">How to Climb</h2>
                     <ol className="mb-4 space-y-2 text-left text-xs text-white/70">
-                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">1. Touch</b> near the fork tip (or anywhere on screen).</li>
-                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">2. Drag / pull</b> — the fork tip follows your finger like a lever.</li>
-                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">3. Hook ledges</b> and swing up. Momentum is everything.</li>
-                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">4. Don&apos;t fall</b> back into the pit or the run ends.</li>
+                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">1. Swing</b> — hold and drag from screen center; quick flicks bounce the pot (hammer has mass).</li>
+                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">2. Plant</b> the head on a rock lip (green ring = PLANTED).</li>
+                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">3. Lever</b> — while planted, drag opposite the plant or down into the lip to yank upward.</li>
+                      <li className="rounded-xl border border-white/10 bg-white/5 p-3"><b className="text-orange-200">4. Pogo</b> — slam the hammer into rock for a bounce; falls respawn at the base.</li>
                     </ol>
                     <button onClick={finishTutorialAndPlay} className="ios-press flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-400 py-3.5 font-black text-[#2a1210]">
                       <Play className="h-4 w-4 fill-current" /> GOT IT — CLIMB

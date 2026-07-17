@@ -1,6 +1,28 @@
 import { useEffect, useRef } from "react";
 import Matter from "matter-js";
 import { haptic } from "@/lib/haptics";
+import {
+  GRAVITY_SCALE,
+  GRAVITY_Y,
+  HAMMER_MAX_SPEED,
+  MAX_RANGE,
+  POT_DENSITY,
+  POT_RADIUS,
+  clampAimOffset,
+  clampBodyVelocity,
+  hammerClosingSpeed,
+  hammerFollowLerp,
+  idleHammerOffset,
+  lipClimbForce,
+  outwardNormalFromCollision,
+  pogoBounceForce,
+  swingReactionForce,
+} from "@/components/game/potOfGloryPhysics";
+import {
+  buildGloryPile,
+  polygonGap,
+  type RockMeta,
+} from "@/components/game/potOfGloryMountain";
 
 interface Props {
   running: boolean;
@@ -9,16 +31,20 @@ interface Props {
   onScoreChange: (score: number) => void;
 }
 
-type TerrainKind = "wood" | "metal" | "stone" | "grill" | "crate";
+/**
+ * Pot of Glory — clean-room climb inspired by contact-anchored sledge physics.
+ * Continuous BBQ rock-pile terrain (no floating wood boards). Original art only.
+ */
 
-interface TerrainMeta {
-  kind: TerrainKind;
-  label?: string;
-}
-
-const PX_PER_METER = 5.5;
-const FORK_LEN = 132;
-const POT_R = 24;
+const PX_PER_METER = 4.8;
+const HAMMER_R = 20;
+const GRIP_TOLERANCE = 10;
+/** Ignore tiny thumb jitter only while planted. */
+const AIM_DEADZONE = 8;
+const POT_R = POT_RADIUS;
+const FIXED_DT = 1000 / 60; // Matter.js recommends ≤ 16.667 ms
+const MAX_SUBSTEPS = 4;
+const CAM_LERP = 0.16;
 
 const createSound = () => {
   let audio: AudioContext | null = null;
@@ -41,73 +67,51 @@ const createSound = () => {
       g.connect(ac.destination);
       o.start(t);
       o.stop(t + dur);
-    } catch { /* ignore audio errors */ }
+    } catch { /* ignore */ }
   };
   return {
-    clang: () => { tone(220, 0.08, "square", 0.035); tone(440, 0.12, "triangle", 0.025, 0.02); },
-    scrape: () => tone(90, 0.06, "sawtooth", 0.018),
-    thud: () => tone(70, 0.18, "sine", 0.05),
-    fall: () => { tone(320, 0.2, "sine", 0.03); tone(140, 0.35, "triangle", 0.04, 0.1); },
+    clang: () => { tone(170, 0.07, "square", 0.028); tone(360, 0.1, "triangle", 0.02, 0.015); },
+    scrape: () => tone(80, 0.05, "sawtooth", 0.014),
+    thud: () => tone(50, 0.2, "sine", 0.05),
+    fall: () => { tone(260, 0.22, "sine", 0.026); tone(100, 0.4, "triangle", 0.032, 0.12); },
+    summit: () => { tone(440, 0.12, "sine", 0.036); tone(660, 0.18, "triangle", 0.03, 0.1); },
   };
 };
 
-const block = (x: number, y: number, w: number, h: number, kind: TerrainKind, angle = 0, label?: string) => {
-  const body = Matter.Bodies.rectangle(x, y, w, h, {
-    isStatic: true,
-    angle,
-    friction: 1.2,
-    frictionStatic: 1.4,
-    restitution: 0.02,
-    chamfer: { radius: kind === "metal" ? 2 : 4 },
-    label: "terrain",
-  });
-  (body as Matter.Body & { meta?: TerrainMeta }).meta = { kind, label };
-  return body;
-};
-
-const buildMountain = (startX: number, startY: number) => {
-  const parts: Matter.Body[] = [];
-  // Room to learn — wide pit floor and gentle first steps
-  parts.push(block(startX, startY + 110, 480, 50, "stone"));
-  parts.push(block(startX - 220, startY - 20, 48, 280, "stone"));
-  parts.push(block(startX + 220, startY - 20, 48, 280, "stone"));
-  parts.push(block(startX - 40, startY + 8, 140, 28, "wood", -0.08));
-  parts.push(block(startX + 110, startY - 55, 150, 26, "crate", 0.05));
-  parts.push(block(startX - 20, startY - 130, 160, 26, "grill", -0.06));
-  parts.push(block(startX + 140, startY - 210, 150, 26, "wood", 0.08));
-  parts.push(block(startX - 30, startY - 290, 170, 28, "stone", -0.04));
-  parts.push(block(startX + 130, startY - 380, 140, 26, "crate", 0.1));
-  parts.push(block(startX - 40, startY - 470, 160, 26, "wood", -0.08));
-
-  // Mid — still readable, slightly steeper "almost" gaps
-  parts.push(block(startX + 120, startY - 560, 130, 24, "grill", 0.18));
-  parts.push(block(startX - 60, startY - 640, 140, 24, "metal", -0.16));
-  parts.push(block(startX + 110, startY - 730, 120, 22, "crate", 0.22));
-  parts.push(block(startX - 40, startY - 820, 135, 24, "wood", -0.12));
-  parts.push(block(startX + 130, startY - 910, 115, 22, "stone", 0.2));
-  parts.push(block(startX - 20, startY - 1000, 145, 24, "grill", -0.18));
-  parts.push(block(startX + 100, startY - 1090, 110, 22, "crate", 0.28));
-  parts.push(block(startX - 50, startY - 1180, 140, 24, "wood", -0.1));
-
-  // Late — narrow ledges that feel one-swing-away
-  parts.push(block(startX + 90, startY - 1280, 95, 20, "metal", 0.35));
-  parts.push(block(startX - 40, startY - 1380, 105, 20, "grill", -0.32));
-  parts.push(block(startX + 100, startY - 1480, 90, 18, "crate", 0.4));
-  parts.push(block(startX - 30, startY - 1580, 110, 20, "wood", -0.25));
-  parts.push(block(startX + 110, startY - 1680, 85, 18, "stone", 0.38));
-  parts.push(block(startX - 20, startY - 1780, 100, 20, "metal", -0.3));
-  parts.push(block(startX + 90, startY - 1880, 80, 18, "grill", 0.45));
-  parts.push(block(startX - 40, startY - 1980, 120, 22, "wood", -0.12));
-  parts.push(block(startX + 100, startY - 2080, 75, 18, "crate", 0.5));
-  parts.push(block(startX - 10, startY - 2180, 115, 22, "stone", -0.18));
-  parts.push(block(startX + 80, startY - 2280, 90, 18, "metal", 0.42));
-  parts.push(block(startX - 30, startY - 2380, 130, 24, "wood", -0.08));
-  parts.push(block(startX + 40, startY - 2480, 160, 28, "stone", 0, "SUMMIT"));
-  parts.push(block(startX + 40, startY - 2540, 44, 80, "metal"));
-
-  parts.push(block(startX - 360, startY - 1200, 54, 2800, "stone"));
-  parts.push(block(startX + 400, startY - 1200, 54, 2800, "stone"));
-  return parts;
+type WorldState = {
+  engine: Matter.Engine | null;
+  pot: Matter.Body | null;
+  hammer: Matter.Body | null;
+  terrain: Matter.Body[];
+  startY: number;
+  startX: number;
+  maxHeight: number;
+  lastScore: number;
+  camX: number;
+  camY: number;
+  shake: number;
+  ended: boolean;
+  ending: boolean;
+  /** Screen-space pointer (client coords relative to canvas) */
+  screenX: number;
+  screenY: number;
+  aiming: boolean;
+  width: number;
+  height: number;
+  climbed: boolean;
+  lastClang: number;
+  onImpact: null | ((impact: number) => void);
+  accum: number;
+  hammerPlanted: boolean;
+  hammerContacts: Set<number>;
+  hammerAngle: number;
+  activePointerId: number | null;
+  prevAimX: number;
+  prevAimY: number;
+  lastAimX: number;
+  lastAimY: number;
+  hammerVelX: number;
+  hammerVelY: number;
 };
 
 const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props) => {
@@ -121,11 +125,11 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
   useEffect(() => { scoreRef.current = onScoreChange; }, [onScoreChange]);
   useEffect(() => { soundOnRef.current = soundEnabled; }, [soundEnabled]);
 
-  const worldRef = useRef({
-    engine: null as Matter.Engine | null,
-    pot: null as Matter.Body | null,
-    fork: null as Matter.Body | null,
-    terrain: [] as Matter.Body[],
+  const worldRef = useRef<WorldState>({
+    engine: null,
+    pot: null,
+    hammer: null,
+    terrain: [],
     startY: 0,
     startX: 0,
     maxHeight: 0,
@@ -134,15 +138,26 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     camY: 0,
     shake: 0,
     ended: false,
-    pointerX: 0,
-    pointerY: 0,
-    dragging: false,
+    ending: false,
+    screenX: 0,
+    screenY: 0,
+    aiming: false,
     width: 0,
     height: 0,
     climbed: false,
     lastClang: 0,
-    ending: false,
-    onImpact: null as null | ((impact: number) => void),
+    onImpact: null,
+    accum: 0,
+    hammerPlanted: false,
+    hammerContacts: new Set(),
+    hammerAngle: 0,
+    activePointerId: null,
+    prevAimX: 0,
+    prevAimY: 0,
+    lastAimX: 0,
+    lastAimY: 0,
+    hammerVelX: 0,
+    hammerVelY: 0,
   });
 
   const destroyEngine = () => {
@@ -150,12 +165,14 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     if (!w.engine) return;
     try {
       Matter.Events.off(w.engine, "collisionStart");
+      Matter.Events.off(w.engine, "collisionActive");
+      Matter.Events.off(w.engine, "collisionEnd");
       Matter.World.clear(w.engine.world, false);
       Matter.Engine.clear(w.engine);
     } catch { /* ignore */ }
     w.engine = null;
     w.pot = null;
-    w.fork = null;
+    w.hammer = null;
     w.terrain = [];
   };
 
@@ -164,77 +181,111 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     destroyEngine();
 
     const engine = Matter.Engine.create({
-      gravity: { x: 0, y: 0.88, scale: 0.001 },
+      gravity: { x: 0, y: GRAVITY_Y, scale: GRAVITY_SCALE },
       enableSleeping: false,
     });
-    engine.positionIterations = 10;
-    engine.velocityIterations = 8;
+    engine.positionIterations = 12;
+    engine.velocityIterations = 10;
 
     const startX = 200;
     const startY = 2500;
     const playerGroup = Matter.Body.nextGroup(true);
+    const idle = idleHammerOffset(MAX_RANGE);
 
+    // Heavy pot / body — enough ledge friction to rest, slight give for bounce reads
     const pot = Matter.Bodies.circle(startX, startY, POT_R, {
-      density: 0.0026,
-      friction: 0.7,
-      frictionAir: 0.028,
-      restitution: 0.04,
+      density: POT_DENSITY,
+      friction: 0.45,
+      frictionStatic: 0.55,
+      frictionAir: 0.022,
+      restitution: 0.18,
       label: "pot",
+      inertia: Infinity,
       collisionFilter: { group: playerGroup },
-    });
-    const fork = Matter.Bodies.rectangle(startX + FORK_LEN * 0.42, startY, FORK_LEN, 12, {
-      density: 0.001,
-      friction: 1.35,
-      frictionAir: 0.012,
-      restitution: 0.02,
-      label: "fork",
-      chamfer: { radius: 3 },
-      collisionFilter: { group: playerGroup },
-    });
-    const pivot = Matter.Constraint.create({
-      bodyA: pot,
-      bodyB: fork,
-      pointA: { x: 0, y: 0 },
-      pointB: { x: -FORK_LEN * 0.42, y: 0 },
-      stiffness: 1,
-      damping: 0.05,
-      length: 0,
     });
 
-    const terrain = buildMountain(startX, startY);
-    Matter.Composite.add(engine.world, [pot, fork, pivot, ...terrain]);
+    // Hammer head — Matter clamps friction to ~1, so stay in the documented range
+    const hammer = Matter.Bodies.circle(startX + idle.x, startY + idle.y, HAMMER_R, {
+      density: 0.00035,
+      friction: 1,
+      frictionStatic: 1,
+      frictionAir: 0.008,
+      restitution: 0.35,
+      label: "hammer",
+      inertia: Infinity,
+      collisionFilter: { group: playerGroup },
+    });
+
+    const terrain = buildGloryPile(startX, startY);
+    Matter.Composite.add(engine.world, [pot, hammer, ...terrain]);
+
+    const terrainContactId = (pair: Matter.Pair) => {
+      if (pair.bodyA === hammer && pair.bodyB.label === "terrain") return pair.bodyB.id;
+      if (pair.bodyB === hammer && pair.bodyA.label === "terrain") return pair.bodyA.id;
+      return null;
+    };
+    const addHammerContacts = (event: Matter.IEventCollision<Matter.Engine>) => {
+      for (const pair of event.pairs) {
+        const id = terrainContactId(pair);
+        if (id !== null) w.hammerContacts.add(id);
+      }
+      w.hammerPlanted = w.hammerContacts.size > 0;
+    };
+    const removeHammerContacts = (event: Matter.IEventCollision<Matter.Engine>) => {
+      for (const pair of event.pairs) {
+        const id = terrainContactId(pair);
+        if (id !== null) w.hammerContacts.delete(id);
+      }
+      w.hammerPlanted = w.hammerContacts.size > 0;
+    };
 
     Matter.Events.on(engine, "collisionStart", (event) => {
       if (w.ended || w.ending) return;
+      addHammerContacts(event);
       for (const pair of event.pairs) {
         const labels = [pair.bodyA.label, pair.bodyB.label];
         const depth = pair.collision?.depth ?? 0;
-        if ((labels.includes("fork") || labels.includes("pot")) && labels.includes("terrain") && depth > 1) {
-          if (performance.now() - w.lastClang > 100) {
+        if (labels.includes("hammer") && labels.includes("terrain") && depth > 0.5) {
+          if (performance.now() - w.lastClang > 90) {
             w.lastClang = performance.now();
-            w.shake = Math.min(0.3, depth * 0.035);
+            w.shake = Math.min(0.35, depth * 0.04);
             w.onImpact?.(depth);
           }
         }
       }
     });
+    Matter.Events.on(engine, "collisionActive", addHammerContacts);
+    Matter.Events.on(engine, "collisionEnd", removeHammerContacts);
 
     w.engine = engine;
     w.pot = pot;
-    w.fork = fork;
+    w.hammer = hammer;
     w.terrain = terrain;
     w.startX = startX;
     w.startY = startY;
     w.maxHeight = 0;
     w.lastScore = -1;
     w.camX = startX;
-    w.camY = startY;
+    w.camY = startY - 20;
     w.shake = 0;
     w.ended = false;
     w.ending = false;
     w.climbed = false;
-    w.dragging = false;
+    w.aiming = false;
     w.lastClang = 0;
+    w.accum = 0;
+    w.hammerPlanted = false;
+    w.hammerContacts.clear();
+    w.hammerAngle = Math.atan2(idle.y, idle.x);
+    w.activePointerId = null;
+    w.prevAimX = idle.x;
+    w.prevAimY = idle.y;
+    w.lastAimX = idle.x;
+    w.lastAimY = idle.y;
+    w.hammerVelX = 0;
+    w.hammerVelY = 0;
+    w.screenX = (w.width || 400) * 0.65;
+    w.screenY = (w.height || 700) * 0.45;
   };
 
   useEffect(() => {
@@ -244,14 +295,14 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       scoreRef.current(0);
     } else {
       worldRef.current.ended = true;
-      worldRef.current.dragging = false;
+      worldRef.current.aiming = false;
     }
   }, [running]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
     const sounds = createSound();
@@ -277,227 +328,584 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       w.height = rect.height;
     };
 
-    const toWorld = (clientX: number, clientY: number) => {
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: clientX - rect.left - w.width / 2 + w.camX,
-        y: clientY - rect.top - w.height / 2 + w.camY,
-      };
-    };
-
     const onPointerDown = (e: PointerEvent) => {
       if (!runningRef.current || w.ended) return;
+      if (w.activePointerId !== null && w.activePointerId !== e.pointerId) return;
       e.preventDefault();
       try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-      const p = toWorld(e.clientX, e.clientY);
-      w.pointerX = p.x;
-      w.pointerY = p.y;
-      w.dragging = true;
+      w.activePointerId = e.pointerId;
+      const rect = canvas.getBoundingClientRect();
+      w.screenX = e.clientX - rect.left;
+      w.screenY = e.clientY - rect.top;
+      w.aiming = true;
     };
     const onPointerMove = (e: PointerEvent) => {
-      if (!w.dragging) return;
+      if (!runningRef.current || w.ended) return;
+      const isTouch = e.pointerType === "touch";
+      if (isTouch && w.activePointerId !== e.pointerId) return;
+      if (isTouch && !w.aiming) return;
+      // Desktop: only aim while a button is held (matches mobile touch-hold).
+      if (!isTouch && (e.buttons & 1) === 0 && !w.aiming) return;
+      if (!isTouch && (e.buttons & 1) !== 0) w.aiming = true;
       e.preventDefault();
-      const p = toWorld(e.clientX, e.clientY);
-      w.pointerX = p.x;
-      w.pointerY = p.y;
+      const rect = canvas.getBoundingClientRect();
+      w.screenX = e.clientX - rect.left;
+      w.screenY = e.clientY - rect.top;
     };
     const onPointerUp = (e: PointerEvent) => {
-      w.dragging = false;
+      if (w.activePointerId === e.pointerId) {
+        w.aiming = false;
+        w.activePointerId = null;
+      }
       try { canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    };
+    const onPointerLeave = () => {
+      if (w.activePointerId === null) w.aiming = false;
     };
 
     const endRun = (reason: "fall" | "summit") => {
       if (w.ended || w.ending || !runningRef.current) return;
       w.ending = true;
       w.ended = true;
-      w.dragging = false;
-      if (soundOnRef.current) sounds.fall();
+      w.aiming = false;
+      if (soundOnRef.current) {
+        if (reason === "summit") sounds.summit();
+        else sounds.fall();
+      }
       try { haptic(reason === "summit" ? "success" : "error"); } catch { /* ignore */ }
       const finalScore = Math.max(0, Math.floor(w.maxHeight));
-      // Defer React state updates so Matter loop finishes this frame safely
       window.setTimeout(() => {
         try { gameOverRef.current(finalScore); } catch { /* ignore */ }
       }, 0);
     };
 
-    const tipOfFork = () => {
-      if (!w.fork) return { x: 0, y: 0 };
-      const tipOffset = FORK_LEN * 0.48;
-      return {
-        x: w.fork.position.x + Math.cos(w.fork.angle) * tipOffset,
-        y: w.fork.position.y + Math.sin(w.fork.angle) * tipOffset,
+    /**
+     * Control model (mobile-readable):
+     * 1) aim = clamp(pointer − screen center)
+     * 2) always apply swing reaction from Δaim (feels like hammer mass)
+     * 3) if planted → spring-damper + lip normal push
+     * 4) on hard plant → pogo bounce along surface normal
+     * 5) hammer follows pot+aim with snappy lerp
+     */
+    const stepControls = () => {
+      if (!w.pot || !w.hammer) return;
+      if (w.width < 2 || w.height < 2) return;
+
+      const pot = w.pot;
+      const hammer = w.hammer;
+
+      const aim = clampAimOffset(
+        w.screenX,
+        w.screenY,
+        w.width,
+        w.height,
+        MAX_RANGE,
+      );
+      let mx = aim.x;
+      let my = aim.y;
+
+      // Hold last aim when finger lifts — don't snap the hammer home.
+      if (!w.aiming) {
+        mx = w.lastAimX;
+        my = w.lastAimY;
+      } else if (w.hammerPlanted && aim.distance < AIM_DEADZONE) {
+        // Dead-zone only while planted: freeze offset so grips don't flick off.
+        mx = hammer.position.x - pot.position.x;
+        my = hammer.position.y - pot.position.y;
+      }
+
+      // Keep aim inside reach (frozen offsets can drift as pot moves).
+      const reach = Math.hypot(mx, my);
+      if (reach > MAX_RANGE && reach > 0) {
+        const scale = MAX_RANGE / reach;
+        mx *= scale;
+        my *= scale;
+      }
+
+      const aimDelta = {
+        x: mx - w.prevAimX,
+        y: my - w.prevAimY,
       };
+
+      const candidates = Matter.Query.region(w.terrain, {
+        min: {
+          x: hammer.bounds.min.x - GRIP_TOLERANCE,
+          y: hammer.bounds.min.y - GRIP_TOLERANCE,
+        },
+        max: {
+          x: hammer.bounds.max.x + GRIP_TOLERANCE,
+          y: hammer.bounds.max.y + GRIP_TOLERANCE,
+        },
+      });
+      const overlaps = Matter.Query.collides(hammer, candidates);
+      const nearGap = candidates.some((body) => polygonGap(hammer, body) <= GRIP_TOLERANCE);
+      const wasPlanted = w.hammerPlanted;
+      w.hammerPlanted = overlaps.length > 0 || nearGap;
+      if (!w.hammerPlanted) w.hammerContacts.clear();
+
+      const normal = overlaps[0]
+        ? outwardNormalFromCollision(overlaps[0], hammer)
+        : null;
+
+      // 1) Swing mass reaction — always on so flicks feel alive in air.
+      const swing = swingReactionForce(aimDelta, w.hammerPlanted);
+      Matter.Body.applyForce(pot, pot.position, swing);
+
+      // 2) Planted lever + lip climb.
+      if (w.hammerPlanted) {
+        const force = lipClimbForce(
+          pot,
+          hammer.position,
+          { x: mx, y: my },
+          normal,
+        );
+        Matter.Body.applyForce(pot, pot.position, force);
+
+        // 3) Fresh plant with closing speed → pogo bounce.
+        if (normal && (!wasPlanted || Math.hypot(aimDelta.x, aimDelta.y) > 10)) {
+          const closing = hammerClosingSpeed(
+            { x: w.hammerVelX, y: w.hammerVelY },
+            normal,
+          );
+          const pogo = pogoBounceForce(closing, normal);
+          if (pogo.x !== 0 || pogo.y !== 0) {
+            Matter.Body.applyForce(pot, pot.position, pogo);
+            w.shake = Math.min(0.45, w.shake + closing * 0.012);
+          }
+        }
+      }
+
+      Matter.Body.setVelocity(pot, clampBodyVelocity(pot.velocity));
+
+      // Hammer follows aim; faster in air, stickier when planted.
+      const lerp = hammerFollowLerp(w.hammerPlanted);
+      const newHammerX = pot.position.x + mx;
+      const newHammerY = pot.position.y + my;
+      const desiredDelta = clampBodyVelocity(
+        {
+          x: (newHammerX - hammer.position.x) * lerp,
+          y: (newHammerY - hammer.position.y) * lerp,
+        },
+        HAMMER_MAX_SPEED,
+      );
+      const nextX = hammer.position.x + desiredDelta.x;
+      const nextY = hammer.position.y + desiredDelta.y;
+      w.hammerVelX = desiredDelta.x;
+      w.hammerVelY = desiredDelta.y;
+      Matter.Body.setPosition(hammer, { x: nextX, y: nextY }, false);
+      Matter.Body.setVelocity(hammer, { x: 0, y: 0 });
+      Matter.Body.setAngularVelocity(hammer, 0);
+
+      w.hammerAngle = Math.atan2(nextY - pot.position.y, nextX - pot.position.x);
+      w.prevAimX = mx;
+      w.prevAimY = my;
+      if (w.aiming) {
+        w.lastAimX = mx;
+        w.lastAimY = my;
+      }
     };
 
     const drawTerrain = (body: Matter.Body) => {
-      const meta = (body as Matter.Body & { meta?: TerrainMeta }).meta;
-      const kind = meta?.kind ?? "stone";
+      const meta = (body as Matter.Body & { rockMeta?: RockMeta }).rockMeta;
       const verts = body.vertices;
-      ctx.beginPath();
-      ctx.moveTo(verts[0].x, verts[0].y);
-      for (let i = 1; i < verts.length; i += 1) ctx.lineTo(verts[i].x, verts[i].y);
-      ctx.closePath();
-      const fills: Record<TerrainKind, string> = {
-        wood: "#8b4a24", metal: "#9aa3ad", stone: "#4a2c2a", grill: "#2f2f35", crate: "#a05a2c",
+      const traceBody = () => {
+        ctx.beginPath();
+        ctx.moveTo(verts[0].x, verts[0].y);
+        for (let i = 1; i < verts.length; i += 1) ctx.lineTo(verts[i].x, verts[i].y);
+        ctx.closePath();
       };
-      ctx.fillStyle = fills[kind];
+      traceBody();
+
+      const variant = meta?.variant ?? 0;
+      // Tan angular cliff faces matching the continuous-mountain references.
+      const palettes = [
+        ["#d2b48c", "#9a7b5a", "#4a3a2e"],
+        ["#c4b09a", "#7d6a58", "#3d342c"],
+        ["#b8956e", "#7a5a42", "#3a2c24"],
+        ["#a89888", "#6e6054", "#322c28"],
+      ];
+      const palette = palettes[variant % palettes.length];
+      const g = ctx.createLinearGradient(
+        body.bounds.min.x,
+        body.bounds.min.y,
+        body.bounds.max.x,
+        body.bounds.max.y,
+      );
+      g.addColorStop(0, palette[0]);
+      g.addColorStop(0.48, palette[1]);
+      g.addColorStop(1, palette[2]);
+      ctx.fillStyle = g;
       ctx.fill();
-      ctx.strokeStyle = kind === "metal" ? "#e8c27a" : "#ffb067";
-      ctx.lineWidth = 2.5;
+
+      // Polygon facets are resolution-independent and share the real
+      // collider vertices, so graphics and gripping surfaces always agree.
+      const centerX = body.position.x;
+      const centerY = body.position.y;
+      for (let i = 0; i < verts.length; i += 1) {
+        const a = verts[i];
+        const b = verts[(i + 1) % verts.length];
+        const light = (i + variant) % 4;
+        ctx.fillStyle = [
+          "rgba(255,235,200,.22)",
+          "rgba(210,160,100,.12)",
+          "rgba(40,28,22,.22)",
+          "rgba(12,10,10,.32)",
+        ][light];
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Bright lip edge on climbable rocks — latch cue for the hammer head.
+      if (meta?.lip && !meta.support) {
+        let topY = Infinity;
+        let leftX = Infinity;
+        let rightX = -Infinity;
+        for (const v of verts) {
+          if (v.y < topY) topY = v.y;
+          leftX = Math.min(leftX, v.x);
+          rightX = Math.max(rightX, v.x);
+        }
+        ctx.strokeStyle = "rgba(255, 210, 140, 0.55)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(leftX + 8, topY + 2);
+        ctx.lineTo(rightX - 8, topY + 2);
+        ctx.stroke();
+      }
+
+      // Layered mineral strata and deterministic cracks.
+      ctx.save();
+      traceBody();
+      ctx.clip();
+      const width = body.bounds.max.x - body.bounds.min.x;
+      const height = body.bounds.max.y - body.bounds.min.y;
+      ctx.strokeStyle = "rgba(230,205,170,.16)";
+      ctx.lineWidth = 1.2;
+      for (let band = 1; band <= 3; band += 1) {
+        const y = body.bounds.min.y + (height * band) / 4;
+        ctx.beginPath();
+        ctx.moveTo(body.bounds.min.x, y);
+        for (let x = body.bounds.min.x; x <= body.bounds.max.x; x += 18) {
+          ctx.lineTo(x, y + Math.sin(x * 0.055 + variant) * 4);
+        }
+        ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(20,15,14,.42)";
+      ctx.lineWidth = 1.5;
+      for (let crack = 0; crack < 3; crack += 1) {
+        const startX = body.bounds.min.x + width * (0.22 + crack * 0.25);
+        const startY = body.bounds.min.y + height * (0.18 + ((variant + crack) % 3) * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(startX + Math.sin(variant + crack) * 9, startY + height * 0.2);
+        ctx.lineTo(startX - 5 + Math.cos(variant + crack) * 8, startY + height * 0.38);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.strokeStyle = meta?.recovery
+        ? "rgba(255,188,92,.48)"
+        : "rgba(215,190,155,.3)";
+      ctx.lineWidth = meta?.recovery ? 2.4 : 1.5;
+      traceBody();
       ctx.stroke();
-      if (meta?.label === "SUMMIT") {
+      ctx.save();
+      traceBody();
+      ctx.clip();
+      const shade = ctx.createLinearGradient(0, body.bounds.min.y, 0, body.bounds.max.y);
+      shade.addColorStop(0, "rgba(255,190,100,.1)");
+      shade.addColorStop(0.55, "rgba(0,0,0,0)");
+      shade.addColorStop(1, "rgba(0,0,0,.38)");
+      ctx.fillStyle = shade;
+      ctx.fillRect(
+        body.bounds.min.x,
+        body.bounds.min.y,
+        body.bounds.max.x - body.bounds.min.x,
+        body.bounds.max.y - body.bounds.min.y,
+      );
+      ctx.restore();
+
+      if (meta?.summit) {
+        const fx = body.position.x;
+        const fy = body.bounds.min.y - 6;
+        ctx.strokeStyle = "#ddd";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(fx, fy);
+        ctx.lineTo(fx, fy - 48);
+        ctx.stroke();
+        ctx.fillStyle = "#e85d2a";
+        ctx.beginPath();
+        ctx.moveTo(fx, fy - 48);
+        ctx.lineTo(fx + 34, fy - 36);
+        ctx.lineTo(fx, fy - 24);
+        ctx.fill();
         ctx.fillStyle = "#ffe08a";
-        ctx.font = "bold 14px sans-serif";
+        ctx.font = "bold 12px Georgia, serif";
         ctx.textAlign = "center";
-        ctx.fillText("SUMMIT", body.position.x, body.bounds.min.y - 12);
+        ctx.fillText("GLORY", fx, fy - 56);
       }
     };
 
     const drawPlayer = () => {
-      if (!w.pot || !w.fork) return;
+      if (!w.pot || !w.hammer) return;
       const pot = w.pot;
-      const fork = w.fork;
+      const hammer = w.hammer;
+      const ang = w.hammerAngle;
 
-      ctx.save();
-      ctx.translate(fork.position.x, fork.position.y);
-      ctx.rotate(fork.angle);
-      ctx.fillStyle = "#c0c7d1";
-      ctx.strokeStyle = "#fff1c4";
-      ctx.lineWidth = 2;
+      // Long yellow sledge handle (visual only — physics uses hammer head)
+      const hx = pot.position.x;
+      const hy = pot.position.y - 4;
+      const tipX = hammer.position.x;
+      const tipY = hammer.position.y;
+      ctx.strokeStyle = "#1a1a1a";
+      ctx.lineWidth = 11;
+      ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.rect(-FORK_LEN * 0.42, -5.5, FORK_LEN, 11);
-      ctx.fill();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(tipX, tipY);
       ctx.stroke();
-      ctx.fillStyle = "#e8edf3";
-      for (let i = -1; i <= 1; i += 1) ctx.fillRect(FORK_LEN * 0.4, i * 5 - 1.5, 20, 3);
-      ctx.fillStyle = "#6b2f1a";
-      ctx.fillRect(-FORK_LEN * 0.42, -6.5, 24, 13);
+      ctx.strokeStyle = "#e8c412";
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(tipX, tipY);
+      ctx.stroke();
+      // Black grip near hands
+      const gripX = hx + Math.cos(ang) * 22;
+      const gripY = hy + Math.sin(ang) * 22;
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(gripX, gripY);
+      ctx.stroke();
+
+      // Heavy rectangular sledge head
+      ctx.save();
+      ctx.translate(tipX, tipY);
+      ctx.rotate(ang);
+      ctx.fillStyle = "#2a2e32";
+      ctx.strokeStyle = "#6a7078";
+      ctx.lineWidth = 2;
+      ctx.fillRect(-14, -22, 32, 44);
+      ctx.strokeRect(-14, -22, 32, 44);
+      ctx.fillStyle = "#111418";
+      ctx.fillRect(-10, -18, 8, 36);
+      ctx.fillRect(6, -18, 8, 36);
+      if (w.hammerPlanted) {
+        ctx.strokeStyle = "rgba(120,255,160,.75)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, HAMMER_R + 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
 
+      // Cracked iron cauldron + bald climber (GOI-style silhouette)
       ctx.save();
       ctx.translate(pot.position.x, pot.position.y);
-      ctx.rotate(pot.angle);
-      const potGrad = ctx.createRadialGradient(-8, -8, 4, 0, 0, POT_R);
-      potGrad.addColorStop(0, "#6a6f78");
-      potGrad.addColorStop(1, "#2a2e35");
+
+      const potGrad = ctx.createRadialGradient(-6, 2, 4, 0, 8, POT_R + 4);
+      potGrad.addColorStop(0, "#4a4e54");
+      potGrad.addColorStop(0.55, "#1e2228");
+      potGrad.addColorStop(1, "#0a0c10");
       ctx.fillStyle = potGrad;
       ctx.beginPath();
-      ctx.arc(0, 0, POT_R, 0, Math.PI * 2);
+      ctx.arc(0, 8, POT_R + 1, 0.15, Math.PI - 0.15);
       ctx.fill();
-      ctx.strokeStyle = "#e2a54a";
-      ctx.lineWidth = 3;
+      // Rim
+      ctx.strokeStyle = "#6a7078";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.ellipse(0, -2, POT_R * 0.95, 8, 0, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = "#d9956a";
+      ctx.fillStyle = "#12151a";
       ctx.beginPath();
-      ctx.arc(0, -9, 10, 0, Math.PI * 2);
+      ctx.ellipse(0, -2, POT_R * 0.88, 6, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#fffaf0";
-      ctx.fillRect(-9, -20, 18, 6);
+      // Surface cracks on pot
+      ctx.strokeStyle = "rgba(180,190,200,.35)";
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.arc(-4, -20, 5, Math.PI, 0);
-      ctx.arc(0, -22, 6, Math.PI, 0);
-      ctx.arc(4, -20, 5, Math.PI, 0);
+      ctx.moveTo(-14, 6);
+      ctx.lineTo(-8, 18);
+      ctx.lineTo(-2, 12);
+      ctx.moveTo(10, 4);
+      ctx.lineTo(14, 16);
+      ctx.stroke();
+
+      // White polo torso
+      ctx.fillStyle = "#f2f0ea";
+      ctx.beginPath();
+      ctx.ellipse(0, -10, 14, 16, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "#c0392b";
+      ctx.fillRect(4, -18, 3, 5);
+
+      // Bald head
+      const lookFlip = Math.cos(ang) < 0;
+      const headTilt = Math.max(-0.45, Math.min(0.45, Math.sin(ang) * 0.5));
+      ctx.save();
+      ctx.translate(0, -28);
+      ctx.rotate(headTilt * (lookFlip ? -1 : 1));
+      ctx.scale(lookFlip ? -1 : 1, 1);
+      ctx.fillStyle = "#e0a888";
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, Math.PI * 2);
+      ctx.fill();
+      // Subtle scalp shade
+      ctx.fillStyle = "rgba(160,110,80,.25)";
+      ctx.beginPath();
+      ctx.arc(0, -4, 10, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = "#2a1810";
+      ctx.beginPath();
+      ctx.arc(3, -1, 1.4, 0, Math.PI * 2);
+      ctx.arc(7, -1, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#c08060";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(5, 4, 3, 0.1, Math.PI - 0.1);
+      ctx.stroke();
+      ctx.restore();
+
+      // Arms gripping the yellow shaft
+      ctx.strokeStyle = "#e0a888";
+      ctx.lineWidth = 5.5;
+      ctx.lineCap = "round";
+      const armTx = Math.cos(ang) * 34;
+      const armTy = Math.sin(ang) * 34 - 2;
+      ctx.beginPath();
+      ctx.moveTo(-8, -12);
+      ctx.quadraticCurveTo(-14, -2, armTx * 0.65, armTy * 0.65);
+      ctx.moveTo(8, -12);
+      ctx.quadraticCurveTo(12, 0, armTx * 0.7 + 3, armTy * 0.65);
+      ctx.stroke();
+
       ctx.restore();
     };
 
     const drawBackdrop = () => {
       const { width, height, camX, camY } = w;
+      // High-altitude pale sky like the cliff references
       const sky = ctx.createLinearGradient(0, 0, 0, height);
-      sky.addColorStop(0, "#1a0b2e");
-      sky.addColorStop(0.45, "#8b2e2a");
-      sky.addColorStop(1, "#f0a35a");
+      sky.addColorStop(0, "#9ec4e8");
+      sky.addColorStop(0.35, "#b8d4ee");
+      sky.addColorStop(0.7, "#c8d8e8");
+      sky.addColorStop(1, "#a8b8c8");
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = "rgba(55,20,48,.55)";
-      ctx.beginPath();
-      ctx.moveTo(0, height);
-      for (let x = 0; x <= width; x += 24) {
-        const worldX = camX + (x - width / 2) * 0.15;
-        ctx.lineTo(x, height * 0.62 + Math.sin(worldX * 0.004) * 40 + camY * 0.02);
+
+      const ridges = [
+        { y: 0.52, amp: 70, parallax: 0.02, color: "rgba(120,140,170,.35)" },
+        { y: 0.64, amp: 90, parallax: 0.04, color: "rgba(90,110,140,.45)" },
+        { y: 0.78, amp: 55, parallax: 0.07, color: "rgba(70,85,110,.55)" },
+      ];
+      for (const ridge of ridges) {
+        ctx.fillStyle = ridge.color;
+        ctx.beginPath();
+        ctx.moveTo(0, height);
+        for (let x = 0; x <= width; x += 16) {
+          const worldX = x + camX * ridge.parallax;
+          const peak = Math.abs(Math.sin(worldX * 0.008)) * ridge.amp;
+          const detail = Math.sin(worldX * 0.022) * ridge.amp * 0.22;
+          ctx.lineTo(x, height * ridge.y - peak + detail + camY * ridge.parallax * 0.02);
+        }
+        ctx.lineTo(width, height);
+        ctx.fill();
       }
-      ctx.lineTo(width, height);
-      ctx.fill();
+
+      // Soft fog band over distant ranges
+      const haze = ctx.createLinearGradient(0, height * 0.45, 0, height * 0.85);
+      haze.addColorStop(0, "rgba(200,220,240,0)");
+      haze.addColorStop(0.5, "rgba(210,225,240,.35)");
+      haze.addColorStop(1, "rgba(180,200,220,.15)");
+      ctx.fillStyle = haze;
+      ctx.fillRect(0, height * 0.45, width, height * 0.4);
     };
 
     const loop = (time: number) => {
       const engine = w.engine;
-      if (!engine || !w.pot || !w.fork) {
+      if (!engine || !w.pot || !w.hammer) {
         raf = requestAnimationFrame(loop);
         return;
       }
 
+      const frameDelta = lastFrame ? Math.min(32, time - lastFrame) : FIXED_DT;
+      lastFrame = time;
+
       if (runningRef.current && !w.ended && !w.ending) {
-        // Simple tag & pull: fork tip follows finger with strong, readable leverage
-        if (w.dragging) {
-          const tip = tipOfFork();
-          const dx = w.pointerX - w.pot.position.x;
-          const dy = w.pointerY - w.pot.position.y;
-          const target = Math.atan2(dy, dx);
-          let diff = target - w.fork.angle;
-          while (diff > Math.PI) diff -= Math.PI * 2;
-          while (diff < -Math.PI) diff += Math.PI * 2;
-
-          const pullX = w.pointerX - tip.x;
-          const pullY = w.pointerY - tip.y;
-          const pullDist = Math.hypot(pullX, pullY);
-          const strength = Math.min(1.35, 0.45 + pullDist / 70);
-
-          Matter.Body.setAngularVelocity(
-            w.fork,
-            w.fork.angularVelocity * 0.62 + Math.max(-0.85, Math.min(0.85, diff * 0.42 * strength)),
-          );
-
-          const forceScale = 0.00085 * strength;
-          Matter.Body.applyForce(w.pot, w.pot.position, {
-            x: -Math.sin(w.fork.angle) * diff * forceScale,
-            y: Math.cos(w.fork.angle) * diff * forceScale * 0.72,
-          });
-          Matter.Body.applyForce(w.fork, tip, {
-            x: pullX * 0.000032,
-            y: pullY * 0.000032,
-          });
-        } else {
-          Matter.Body.setAngularVelocity(w.fork, w.fork.angularVelocity * 0.94);
+        w.accum += frameDelta;
+        let steps = 0;
+        while (w.accum >= FIXED_DT && steps < MAX_SUBSTEPS) {
+          // Apply controls exactly once per fixed physics step.
+          stepControls();
+          try {
+            Matter.Engine.update(engine, FIXED_DT);
+          } catch {
+            endRun("fall");
+            break;
+          }
+          w.accum -= FIXED_DT;
+          steps += 1;
         }
+        if (w.accum > FIXED_DT * 2) w.accum = 0;
 
-        const delta = lastFrame ? Math.min(22, time - lastFrame) : 1000 / 60;
-        try {
-          Matter.Engine.update(engine, delta);
-        } catch {
-          endRun("fall");
-          raf = requestAnimationFrame(loop);
-          return;
-        }
-
-        // Sanity — prevent NaN explosions that "break" the game
         if (!Number.isFinite(w.pot.position.x) || !Number.isFinite(w.pot.position.y)) {
           endRun("fall");
-          raf = requestAnimationFrame(loop);
-          return;
-        }
+        } else {
+          const heightM = Math.max(0, (w.startY - w.pot.position.y) / PX_PER_METER);
+          if (heightM > w.maxHeight) {
+            w.maxHeight = heightM;
+            if (heightM > 18) w.climbed = true;
+          }
+          const rounded = Math.floor(w.maxHeight);
+          if (rounded !== w.lastScore) {
+            w.lastScore = rounded;
+            scoreRef.current(rounded);
+          }
 
-        const heightM = Math.max(0, (w.startY - w.pot.position.y) / PX_PER_METER);
-        if (heightM > w.maxHeight) {
-          w.maxHeight = heightM;
-          if (heightM > 18) w.climbed = true;
-        }
-        const rounded = Math.floor(w.maxHeight);
-        if (rounded !== w.lastScore) {
-          w.lastScore = rounded;
-          scoreRef.current(rounded);
-        }
+          w.camX += (w.pot.position.x - w.camX) * CAM_LERP;
+          w.camY += (w.pot.position.y - w.camY) * CAM_LERP;
+          w.shake = Math.max(0, w.shake - 0.03);
 
-        w.camX += (w.pot.position.x - w.camX) * 0.12;
-        w.camY += (w.pot.position.y - w.camY) * 0.12;
-        w.shake = Math.max(0, w.shake - 0.025);
+          // Falling is the punishment, not an artificial game-over. The wide
+          // base catches normal falls; this only rescues an off-world launch.
+          const escapedWorld = w.pot.position.y > w.startY + 650
+            || Math.abs(w.pot.position.x - w.startX) > 1400;
+          if (escapedWorld && w.hammer) {
+            const idle = idleHammerOffset(MAX_RANGE);
+            Matter.Body.setPosition(w.pot, { x: w.startX, y: w.startY });
+            Matter.Body.setVelocity(w.pot, { x: 0, y: 0 });
+            Matter.Body.setPosition(w.hammer, {
+              x: w.startX + idle.x,
+              y: w.startY + idle.y,
+            });
+            Matter.Body.setVelocity(w.hammer, { x: 0, y: 0 });
+            w.camX = w.startX;
+            w.camY = w.startY;
+            w.hammerContacts.clear();
+            w.hammerPlanted = false;
+            w.shake = 0;
+            if (soundOnRef.current) sounds.fall();
+            try { haptic("error"); } catch { /* ignore */ }
+          }
 
-        // Only end after a real climb — early slips are recoverable
-        if (w.climbed && w.pot.position.y > w.startY + 55) endRun("fall");
-        if (w.pot.position.y < w.startY - 2500) endRun("summit");
+          const summitRock = w.terrain.find(
+            (body) => (body as Matter.Body & { rockMeta?: RockMeta }).rockMeta?.summit,
+          );
+          if (summitRock && w.pot.position.y < summitRock.bounds.min.y + POT_R) {
+            endRun("summit");
+          }
+        }
       }
 
-      lastFrame = time;
       drawBackdrop();
       ctx.save();
       const shakeX = w.shake > 0 ? (Math.random() - 0.5) * 8 : 0;
@@ -506,33 +914,45 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       for (const body of w.terrain) drawTerrain(body);
       drawPlayer();
 
-      if (runningRef.current && !w.ended && w.dragging && w.pot) {
-        const tip = tipOfFork();
-        ctx.strokeStyle = "rgba(255,200,120,.55)";
-        ctx.lineWidth = 2.5;
-        ctx.setLineDash([5, 5]);
+      // Aim cue at pot + aim (matches physics), not camera-lagged screen center
+      if (runningRef.current && !w.ended && w.aiming && w.pot) {
+        const aim = clampAimOffset(w.screenX, w.screenY, w.width, w.height, MAX_RANGE);
+        const tipX = w.pot.position.x + aim.x;
+        const tipY = w.pot.position.y + aim.y;
+        ctx.strokeStyle = "rgba(255,210,120,.35)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
         ctx.beginPath();
-        ctx.moveTo(tip.x, tip.y);
-        ctx.lineTo(w.pointerX, w.pointerY);
+        ctx.arc(w.pot.position.x, w.pot.position.y, MAX_RANGE, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = "rgba(255,210,120,.85)";
+        ctx.fillStyle = "rgba(255,220,140,.85)";
         ctx.beginPath();
-        ctx.arc(w.pointerX, w.pointerY, 8, 0, Math.PI * 2);
+        ctx.arc(tipX, tipY, 6, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
 
       if (runningRef.current) {
-        ctx.fillStyle = "rgba(0,0,0,.4)";
-        ctx.fillRect(10, 10, 90, 38);
+        ctx.fillStyle = "rgba(0,0,0,.45)";
+        ctx.fillRect(10, 10, 96, 42);
         ctx.fillStyle = "#ffd28a";
-        ctx.font = "bold 11px sans-serif";
+        ctx.font = "bold 10px system-ui,sans-serif";
         ctx.textAlign = "left";
-        ctx.fillText("HEIGHT", 18, 25);
+        ctx.fillText("HEIGHT", 22, 26);
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 16px monospace";
-        ctx.fillText(`${Math.floor(w.maxHeight)}m`, 18, 42);
+        ctx.font = "bold 18px ui-monospace,monospace";
+        ctx.fillText(`${Math.floor(w.maxHeight)}m`, 22, 44);
+
+        const planted = w.hammerPlanted;
+        ctx.fillStyle = "rgba(0,0,0,.45)";
+        ctx.fillRect(112, 10, 64, 42);
+        ctx.fillStyle = planted ? "#8df2a6" : "#ffb070";
+        ctx.font = "bold 10px system-ui,sans-serif";
+        ctx.fillText(planted ? "PLANTED" : "SWING", 120, 27);
+        ctx.fillStyle = "rgba(255,255,255,.7)";
+        ctx.font = "bold 9px system-ui,sans-serif";
+        ctx.fillText(planted ? "lever up" : "hook rock", 120, 42);
       }
 
       raf = requestAnimationFrame(loop);
@@ -545,6 +965,8 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
     canvas.addEventListener("pointermove", onPointerMove, { passive: false });
     canvas.addEventListener("pointerup", onPointerUp);
     canvas.addEventListener("pointercancel", onPointerUp);
+    canvas.addEventListener("pointerleave", onPointerLeave);
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     raf = requestAnimationFrame(loop);
 
     return () => {
@@ -554,6 +976,7 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("pointerleave", onPointerLeave);
       destroyEngine();
     };
   }, []);
@@ -561,8 +984,9 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
   return (
     <canvas
       ref={canvasRef}
-      aria-label="Pot of Glory. Touch and drag to pull the fork tip and climb."
+      aria-label="Pot of Glory. Move from screen center to swing the sledge and climb the glory pile."
       className="block h-full w-full touch-none select-none"
+      style={{ touchAction: "none", WebkitUserSelect: "none" }}
     />
   );
 };
