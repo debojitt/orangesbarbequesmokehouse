@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* Orange's BBQ palette — warm orange, smoky charcoal, cream */
+    /* Your Restaurant Name palette — warm orange, smoky charcoal, cream */
     --background: 28 100% 97%;
     --foreground: 20 30% 15%;
 

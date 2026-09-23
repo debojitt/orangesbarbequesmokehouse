@@ -55,7 +55,7 @@ const StaffDashboard = () => {
 
       const { data } = await supabase.functions.invoke('ai-craving', {
         body: {
-          query: `Generate a daily business summary for Orange's BBQ Smoke House. Here's today's data:
+          query: `Generate a daily business summary for Your Restaurant Name. Here's today's data:
 - Total guests: ${stats?.totalGuests || 0}
 - Avg rating: ${stats?.avgRating || 'N/A'}
 - Top trending items: ${topItemsSummary || 'No data'}

@@ -11,7 +11,7 @@ serve(async (req) => {
 
   try {
     const { message, rating } = await req.json();
-    const systemPrompt = `You are INARA restaurant's customer care AI. A customer gave a ${rating}-star rating and shared feedback.
+    const systemPrompt = `You are the restaurant's customer care AI. A customer gave a ${rating}-star rating and shared feedback.
 Your job: Respond empathetically, acknowledge their issue, and assure them it will be addressed.
 Be warm, professional, and concise (2-3 sentences max). Don't be defensive.
 If they mention specific food issues, acknowledge that specifically.`;

@@ -177,7 +177,7 @@ serve(async (req) => {
         `- [id=${item.id}] ${item.name} (₹${item.base_price}, ${item.is_veg ? 'Veg' : 'Non-Veg'}): ${item.description || 'No description'}`
       ).join('\n');
 
-      const sys = `You are INARA's food recommendation AI. Suggest 1-3 best matching items from the menu based on the customer's craving. Be warm and enthusiastic.
+      const sys = `You are the restaurant's food recommendation AI. Suggest 1-3 best matching items from the menu based on the customer's craving. Be warm and enthusiastic.
 
 MENU:
 ${menuContext}
