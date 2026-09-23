@@ -207,7 +207,7 @@ const SmokehouseRush3D = ({ running, soundEnabled, onGameOver, onScoreChange }: 
     };
   }, []);
 
-  return <canvas ref={canvasRef} aria-label="Smokehouse Rush 3D. Swipe between lanes, dodge crates, and collect tokens." className="block h-full w-full touch-none select-none" />;
+  return <canvas ref={canvasRef} aria-label="Kitchen Rush 3D. Swipe between lanes, dodge crates, and collect tokens." className="block h-full w-full touch-none select-none" />;
 };
 
 export default SmokehouseRush3D;

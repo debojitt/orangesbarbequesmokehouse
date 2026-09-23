@@ -35,11 +35,11 @@ interface ScoreRow { display_name: string; score: number; created_at: string }
 const GAME_META: Record<GameId, { title: string; emoji: string; tag: string; accent: string }> = {
   climb: { title: "Pot of Glory", emoji: "🍲", tag: "🧗", accent: "text-orange-200" },
   bounce: { title: "Meatball Bounce", emoji: "🔴", tag: "🔴", accent: "text-cyan-200" },
-  snake: { title: "Smokehouse Snake", emoji: "🐍", tag: "🐍", accent: "text-lime-200" },
+  snake: { title: "Kitchen Snake", emoji: "🐍", tag: "🐍", accent: "text-lime-200" },
   space: { title: "Space Defender", emoji: "🚀", tag: "🚀", accent: "text-blue-200" },
   breakout: { title: "Brick Breaker", emoji: "🧱", tag: "🧱", accent: "text-pink-200" },
   hungry: { title: "Hungry Critters", emoji: "🍖", tag: "🍖", accent: "text-amber-200" },
-  rush3d: { title: "Smokehouse Rush 3D", emoji: "🏎️", tag: "🏎️", accent: "text-violet-200" },
+  rush3d: { title: "Kitchen Rush 3D", emoji: "🏎️", tag: "🏎️", accent: "text-violet-200" },
   skyfry: { title: "Sky Fry", emoji: "🍗", tag: "🍗", accent: "text-sky-200" },
 };
 
@@ -381,7 +381,7 @@ const GamePage = () => {
                       <p className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.25em] text-orange-300">
                         <Sparkles className="h-3 w-3" /> Pick a game
                       </p>
-                      <h2 className="font-display text-3xl font-black text-white">Smokehouse Arcade</h2>
+                      <h2 className="font-display text-3xl font-black text-white">Kitchen Arcade</h2>
                       <p className="mt-2 text-xs text-white/55">Eight responsive games built for touch, fullscreen, and every phone size.</p>
                     </div>
 
@@ -428,7 +428,7 @@ const GamePage = () => {
                       <div className="mb-3 flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-lime-500/20 text-2xl">🐍</div>
                         <div>
-                          <h3 className="font-display text-xl font-black text-white">Smokehouse Snake</h3>
+                          <h3 className="font-display text-xl font-black text-white">Kitchen Snake</h3>
                           <p className="text-[11px] text-lime-200">Swipe classic · Best {bestSnake}</p>
                         </div>
                       </div>
@@ -488,7 +488,7 @@ const GamePage = () => {
                       <div className="mb-3 flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/20 text-2xl">🏎️</div>
                         <div>
-                          <h3 className="font-display text-xl font-black text-white">Smokehouse Rush 3D</h3>
+                          <h3 className="font-display text-xl font-black text-white">Kitchen Rush 3D</h3>
                           <p className="text-[11px] text-violet-200">Perspective runner · Best {bestRush3d}</p>
                         </div>
                       </div>
