@@ -492,7 +492,7 @@ const PotOfGlory = ({ running, soundEnabled, onGameOver, onScoreChange }: Props)
       const nextY = hammer.position.y + desiredDelta.y;
       w.hammerVelX = desiredDelta.x;
       w.hammerVelY = desiredDelta.y;
-      Matter.Body.setPosition(hammer, { x: nextX, y: nextY }, false);
+      Matter.Body.setPosition(hammer, { x: nextX, y: nextY });
       Matter.Body.setVelocity(hammer, { x: 0, y: 0 });
       Matter.Body.setAngularVelocity(hammer, 0);
 
