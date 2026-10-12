@@ -8,6 +8,7 @@ import TodayOffers from '@/components/TodayOffers';
 import AICravingBox from '@/components/AICravingBox';
 import { useCart } from '@/contexts/CartContext';
 import { Link } from 'react-router-dom';
+import GameAdBanner from '@/components/GameAdBanner';
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -180,6 +181,7 @@ const Index = () => {
 
       {/* Hero Section - scrolls normally */}
       <div className="px-4 pt-4 pb-3">
+        <GameAdBanner className="mb-4" />
         {/* Greeting */}
         <div className="mb-4">
           <p className="text-muted-foreground text-xs uppercase tracking-widest">{getGreeting()}</p>
