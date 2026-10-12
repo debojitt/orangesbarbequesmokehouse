@@ -513,6 +513,7 @@ const GamePage = () => {
                       <p className="text-xs leading-relaxed text-white/60">Pilot a flying drumstick through grill-stack gaps. The opening is friendly, then speed rises and gaps tighten.</p>
                       <div className="mt-3 text-[10px] font-bold text-sky-100">Tap or hold to lift · release to drop</div>
                     </button>
+                    <OnlineArcade />
                   </div>
                 </div>
               )}
