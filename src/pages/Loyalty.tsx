@@ -169,6 +169,7 @@ const LoyaltyPage = () => {
         </header>
 
         <div className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
+          <GameAdBanner className="w-full max-w-sm mb-4" />
           <div className="ios-card p-6 w-full max-w-sm ios-spring-in">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
