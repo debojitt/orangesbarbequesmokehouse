@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 import StaffRoulettePrizes from '@/components/StaffRoulettePrizes';
+import StaffGameAd from '@/components/StaffGameAd';
 
 type DiscountType = Database['public']['Enums']['discount_type'];
 type DiscountTarget = Database['public']['Enums']['discount_target'];
@@ -97,6 +98,7 @@ const StaffOffers = () => {
 
   return (
     <div className="space-y-4">
+      <StaffGameAd />
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg text-primary">Offers & Discounts</h2>
         <button

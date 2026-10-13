@@ -11,6 +11,7 @@ import { loyaltyApi } from "@/lib/loyalty";
 import { haptic } from "@/lib/haptics";
 import { toast } from "sonner";
 import OfferRoulette from "@/components/OfferRoulette";
+import GameAdBanner from "@/components/GameAdBanner";
 
 const MYSTERY_TEXT = "A surprise reward — depends on your luck! 🍀";
 
@@ -168,6 +169,7 @@ const LoyaltyPage = () => {
         </header>
 
         <div className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
+          <GameAdBanner className="w-full max-w-sm mb-4" />
           <div className="ios-card p-6 w-full max-w-sm ios-spring-in">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -240,6 +242,7 @@ const LoyaltyPage = () => {
       </header>
 
       <div className="px-4 py-5 max-w-md mx-auto space-y-4">
+        <GameAdBanner />
         {/* Hero card */}
         <div className="ios-card overflow-hidden ios-spring-in">
           <div className="maroon-gradient p-5 text-primary-foreground relative">
